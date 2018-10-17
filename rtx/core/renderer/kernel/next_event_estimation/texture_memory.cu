@@ -4,14 +4,14 @@
 #include "../../header/cuda_common.h"
 #include "../../header/cuda_functions.h"
 #include "../../header/cuda_texture.h"
-#include "../../header/mcrt_kernel.h"
+#include "../../header/next_event_estimation_kernel.h"
 #include <assert.h>
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 #include <float.h>
 #include <stdio.h>
 
-__global__ void mcrt_texture_memory_kernel(
+__global__ void nee_texture_memory_kernel(
     int face_vertex_index_array_size,
     int vertex_array_size,
     rtxObject* global_serialized_object_array, int object_array_size,
@@ -20,6 +20,8 @@ __global__ void mcrt_texture_memory_kernel(
     int threaded_bvh_node_array_size,
     rtxRGBAColor* global_serialized_color_mapping_array, int color_mapping_array_size,
     cudaTextureObject_t* global_serialized_mapping_texture_object_array,
+    int* global_light_sampling_table, int light_sampling_table_size,
+    float total_light_face_area,
     rtxRGBAPixel* global_serialized_render_array,
     int num_active_texture_units,
     int num_rays_per_thread,
@@ -53,6 +55,9 @@ __global__ void mcrt_texture_memory_kernel(
     cudaTextureObject_t* shared_serialized_texture_object_array = (cudaTextureObject_t*)&shared_memory[offset];
     offset += sizeof(cudaTextureObject_t) * num_active_texture_units;
 
+    int* shared_light_sampling_table = (int*)&shared_memory[offset];
+    offset += sizeof(int) * light_sampling_table_size;
+
     // ブロック内のどれか1スレッドが代表して共有メモリに内容をコピー
     if (threadIdx.x == 0) {
         for (int m = 0; m < object_array_size; m++) {
@@ -69,6 +74,9 @@ __global__ void mcrt_texture_memory_kernel(
         }
         for (int m = 0; m < num_active_texture_units; m++) {
             shared_serialized_texture_object_array[m] = global_serialized_mapping_texture_object_array[m];
+        }
+        for (int m = 0; m < light_sampling_table_size; m++) {
+            shared_light_sampling_table[m] = global_light_sampling_table[m];
         }
     }
     __syncthreads();
@@ -95,34 +103,9 @@ __global__ void mcrt_texture_memory_kernel(
             return;
         }
 
-        // レイの生成
-        rtxCUDARay ray;
-        // スーパーサンプリング
-        float2 noise;
-        __xorshift_uniform(noise.x, xors_x, xors_y, xors_z, xors_w);
-        __xorshift_uniform(noise.y, xors_x, xors_y, xors_z, xors_w);
-        // 方向
-        ray.direction.x = 2.0f * float(target_pixel_x + noise.x) / float(screen_width) - 1.0f;
-        ray.direction.y = -(2.0f * float(target_pixel_y + noise.y) / float(screen_height) - 1.0f) / aspect_ratio;
-        ray.direction.z = -ray_origin_z;
-        // 正規化
-        const float norm = sqrtf(ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z);
-        ray.direction.x /= norm;
-        ray.direction.y /= norm;
-        ray.direction.z /= norm;
-        // 始点
-        if (camera_type == RTXCameraTypePerspective) {
-            ray.origin = { 0.0f, 0.0f, ray_origin_z };
-        } else {
-            ray.origin = { ray.direction.x, ray.direction.y, ray_origin_z };
-        }
-        // BVHのAABBとの衝突判定で使う
-        float3 ray_direction_inv = {
-            1.0f / ray.direction.x,
-            1.0f / ray.direction.y,
-            1.0f / ray.direction.z,
-        };
-
+        rtxCUDARay* ray;
+        rtxCUDARay shadow_ray;
+        rtxCUDARay primary_ray;
         float3 hit_point;
         float3 unit_hit_face_normal;
         float4 hit_va;
@@ -130,13 +113,48 @@ __global__ void mcrt_texture_memory_kernel(
         float4 hit_vc;
         rtxFaceVertexIndex hit_face;
         rtxObject hit_object;
+        float g_term;
+        float brdf;
+
+        // スーパーサンプリング
+        float2 noise;
+        __xorshift_uniform(noise.x, xors_x, xors_y, xors_z, xors_w);
+        __xorshift_uniform(noise.y, xors_x, xors_y, xors_z, xors_w);
+        // 方向
+        primary_ray.direction.x = 2.0f * float(target_pixel_x + noise.x) / float(screen_width) - 1.0f;
+        primary_ray.direction.y = -(2.0f * float(target_pixel_y + noise.y) / float(screen_height) - 1.0f) / aspect_ratio;
+        primary_ray.direction.z = -ray_origin_z;
+        // 正規化
+        const float norm = sqrtf(primary_ray.direction.x * primary_ray.direction.x + primary_ray.direction.y * primary_ray.direction.y + primary_ray.direction.z * primary_ray.direction.z);
+        primary_ray.direction.x /= norm;
+        primary_ray.direction.y /= norm;
+        primary_ray.direction.z /= norm;
+        // 始点
+        if (camera_type == RTXCameraTypePerspective) {
+            primary_ray.origin = { 0.0f, 0.0f, ray_origin_z };
+        } else {
+            primary_ray.origin = { primary_ray.direction.x, primary_ray.direction.y, ray_origin_z };
+        }
+
+        float3 ray_direction_inv;
+        ray = &primary_ray;
 
         // 光輸送経路のウェイト
         rtxRGBAColor path_weight = { 1.0f, 1.0f, 1.0f };
+        rtxRGBAColor next_path_weight;
 
-        for (int bounce = 0; bounce < max_bounce; bounce++) {
+        // レイが当たるたびにシャドウレイを飛ばすので2倍ループが必要
+        int total_rays = max_bounce * 2;
+
+        for (int iter = 0; iter < total_rays; iter++) {
+            bool is_shadow_ray = (iter & 1) == 1; // iter % 2
+
             float min_distance = FLT_MAX;
             bool did_hit_object = false;
+
+            ray_direction_inv.x = 1.0f / ray->direction.x;
+            ray_direction_inv.y = 1.0f / ray->direction.y;
+            ray_direction_inv.z = 1.0f / ray->direction.z;
 
             // シーン上の全オブジェクトについて
             for (int object_index = 0; object_index < object_array_size; object_index++) {
@@ -169,7 +187,7 @@ __global__ void mcrt_texture_memory_kernel(
                         // 詳細は以下参照
                         // An Efficient and Robust Ray–Box Intersection Algorithm
                         // http://www.cs.utah.edu/~awilliam/box/box.pdf
-                        __rtx_bvh_traversal_one_step_or_continue(ray, node, ray_direction_inv, bvh_current_node_index);
+                        __rtx_bvh_traversal_one_step_or_continue((*ray), node, ray_direction_inv, bvh_current_node_index);
                     } else {
                         // 葉ノード
                         // 割り当てられたジオメトリの各面との衝突判定を行う
@@ -180,7 +198,7 @@ __global__ void mcrt_texture_memory_kernel(
                         if (object.geometry_type == RTXGeometryTypeStandard) {
 
                             for (int m = 0; m < num_assigned_faces; m++) {
-                                int serialized_face_index = node.assigned_face_index_start + m + object.serialized_face_index_offset;
+                                const int serialized_face_index = node.assigned_face_index_start + m + object.serialized_face_index_offset;
                                 const int4 face = tex1Dfetch(g_serialized_face_vertex_index_array_texture_ref, serialized_face_index);
 
                                 const float4 va = tex1Dfetch(g_serialized_vertex_array_texture_ref, face.x + object.serialized_vertex_index_offset);
@@ -189,12 +207,12 @@ __global__ void mcrt_texture_memory_kernel(
 
                                 float3 face_normal;
                                 float distance;
-                                __rtx_intersect_triangle_or_continue(ray, va, vb, vc, face_normal, distance, min_distance);
+                                __rtx_intersect_triangle_or_continue((*ray), va, vb, vc, face_normal, distance, min_distance);
 
                                 min_distance = distance;
-                                hit_point.x = ray.origin.x + distance * ray.direction.x;
-                                hit_point.y = ray.origin.y + distance * ray.direction.y;
-                                hit_point.z = ray.origin.z + distance * ray.direction.z;
+                                hit_point.x = ray->origin.x + distance * ray->direction.x;
+                                hit_point.y = ray->origin.y + distance * ray->direction.y;
+                                hit_point.z = ray->origin.z + distance * ray->direction.z;
 
                                 unit_hit_face_normal.x = face_normal.x;
                                 unit_hit_face_normal.y = face_normal.y;
@@ -219,12 +237,12 @@ __global__ void mcrt_texture_memory_kernel(
                             const float4 radius = tex1Dfetch(g_serialized_vertex_array_texture_ref, face.y + object.serialized_vertex_index_offset);
 
                             float distance;
-                            __rtx_intersect_sphere_or_continue(ray, center, radius, distance, min_distance);
+                            __rtx_intersect_sphere_or_continue((*ray), center, radius, distance, min_distance);
 
                             min_distance = distance;
-                            hit_point.x = ray.origin.x + distance * ray.direction.x;
-                            hit_point.y = ray.origin.y + distance * ray.direction.y;
-                            hit_point.z = ray.origin.z + distance * ray.direction.z;
+                            hit_point.x = ray->origin.x + distance * ray->direction.x;
+                            hit_point.y = ray->origin.y + distance * ray->direction.y;
+                            hit_point.z = ray->origin.z + distance * ray->direction.z;
 
                             const float3 normal = {
                                 hit_point.x - center.x,
@@ -257,66 +275,174 @@ __global__ void mcrt_texture_memory_kernel(
                 break;
             }
 
-            // 反射方向のサンプリング
-            float3 unit_next_ray_direction;
-            float cosine_term;
-            __rtx_sample_ray_direction(
-                unit_hit_face_normal,
-                unit_next_ray_direction,
-                cosine_term,
-                curand_state);
-
             //  衝突点の色を検出
             rtxRGBAColor hit_color;
-            bool did_hit_light = false;
-            float brdf = 0.0f;
-            __rtx_fetch_hit_color_in_texture_memory(
-                hit_point,
-                unit_hit_face_normal,
-                hit_object,
-                hit_face,
-                hit_color,
-                ray.direction,
-                unit_next_ray_direction,
-                shared_serialized_material_attribute_byte_array,
-                shared_serialized_color_mapping_array,
-                shared_serialized_texture_object_array,
-                g_serialized_uv_coordinate_array_texture_ref,
-                brdf,
-                did_hit_light);
 
-            // 光源に当たった場合トレースを打ち切り
-            if (did_hit_light) {
-                rtxEmissiveMaterialAttribute attr = ((rtxEmissiveMaterialAttribute*)&shared_serialized_material_attribute_byte_array[hit_object.material_attribute_byte_array_offset])[0];
-                if (bounce == 0 && attr.visible == false) {
-                    pixel.r += ambient_color.r;
-                    pixel.g += ambient_color.g;
-                    pixel.b += ambient_color.b;
-                } else {
-                    pixel.r += hit_color.r * path_weight.r * attr.brightness;
-                    pixel.g += hit_color.g * path_weight.g * attr.brightness;
-                    pixel.b += hit_color.b * path_weight.b * attr.brightness;
+            if (is_shadow_ray) {
+                // 光源に当たった場合寄与を加算
+                int material_type = hit_object.layerd_material_types.outside;
+                if (material_type == RTXMaterialTypeEmissive) {
+                    __rtx_fetch_light_color_in_texture_memory(
+                        hit_point,
+                        hit_object,
+                        hit_face,
+                        hit_color,
+                        shared_serialized_material_attribute_byte_array,
+                        shared_serialized_color_mapping_array,
+                        shared_serialized_texture_object_array,
+                        g_serialized_uv_coordinate_array_texture_ref);
+                    rtxEmissiveMaterialAttribute attr = ((rtxEmissiveMaterialAttribute*)&shared_serialized_material_attribute_byte_array[hit_object.material_attribute_byte_array_offset])[0];
+                    float emission = attr.brightness;
+                    float inv_pdf = total_light_face_area;
+                    pixel.r += path_weight.r * emission * brdf * hit_color.r * inv_pdf * g_term;
+                    pixel.g += path_weight.g * emission * brdf * hit_color.g * inv_pdf * g_term;
+                    pixel.b += path_weight.b * emission * brdf * hit_color.b * inv_pdf * g_term;
                 }
-                break;
+
+                path_weight.r = next_path_weight.r;
+                path_weight.g = next_path_weight.g;
+                path_weight.b = next_path_weight.b;
+
+                ray = &primary_ray;
+            } else {
+                // 反射方向のサンプリング
+                float3 unit_next_ray_direction;
+                float cosine_term;
+                __rtx_sample_ray_direction(
+                    unit_hit_face_normal,
+                    unit_next_ray_direction,
+                    cosine_term,
+                    curand_state);
+
+                bool did_hit_light = false;
+                brdf = 0.0f;
+                __rtx_fetch_hit_color_in_texture_memory(
+                    hit_point,
+                    unit_hit_face_normal,
+                    hit_object,
+                    hit_face,
+                    hit_color,
+                    ray->direction,
+                    unit_next_ray_direction,
+                    shared_serialized_material_attribute_byte_array,
+                    shared_serialized_color_mapping_array,
+                    shared_serialized_texture_object_array,
+                    g_serialized_uv_coordinate_array_texture_ref,
+                    brdf,
+                    did_hit_light);
+
+                // 光源に当たった場合トレースを打ち切り
+                if (did_hit_light) {
+                    if (iter > 0) {
+                        break;
+                    }
+                    // 最初のパスで光源に当たった場合のみ寄与を加算
+                    rtxEmissiveMaterialAttribute attr = ((rtxEmissiveMaterialAttribute*)&shared_serialized_material_attribute_byte_array[hit_object.material_attribute_byte_array_offset])[0];
+                    if (attr.visible) {
+                        pixel.r += hit_color.r * path_weight.r * attr.brightness;
+                        pixel.g += hit_color.g * path_weight.g * attr.brightness;
+                        pixel.b += hit_color.b * path_weight.b * attr.brightness;
+                    } else {
+                        pixel.r += ambient_color.r;
+                        pixel.g += ambient_color.g;
+                        pixel.b += ambient_color.b;
+                    }
+                    break;
+                }
+
+                // 入射方向のサンプリング
+                ray->origin.x = hit_point.x;
+                ray->origin.y = hit_point.y;
+                ray->origin.z = hit_point.z;
+                ray->direction.x = unit_next_ray_direction.x;
+                ray->direction.y = unit_next_ray_direction.y;
+                ray->direction.z = unit_next_ray_direction.z;
+
+                float inv_pdf = 2.0f * M_PI;
+                next_path_weight.r = path_weight.r * brdf * hit_color.r * cosine_term * inv_pdf;
+                next_path_weight.g = path_weight.g * brdf * hit_color.g * cosine_term * inv_pdf;
+                next_path_weight.b = path_weight.b * brdf * hit_color.b * cosine_term * inv_pdf;
+
+                // 光源のサンプリング
+                float2 uniform2;
+                __xorshift_uniform(uniform2.x, xors_x, xors_y, xors_z, xors_w);
+                __xorshift_uniform(uniform2.y, xors_x, xors_y, xors_z, xors_w);
+                const int table_index = floorf(uniform2.x * float(light_sampling_table_size));
+                const int object_index = shared_light_sampling_table[table_index];
+                rtxObject object = shared_serialized_object_array[object_index];
+                const int face_index = floorf(uniform2.y * float(object.num_faces));
+                const int serialized_face_index = face_index + object.serialized_face_index_offset;
+                const int4 face = tex1Dfetch(g_serialized_face_vertex_index_array_texture_ref, serialized_face_index);
+                const float4 va = tex1Dfetch(g_serialized_vertex_array_texture_ref, face.x + object.serialized_vertex_index_offset);
+                const float4 vb = tex1Dfetch(g_serialized_vertex_array_texture_ref, face.y + object.serialized_vertex_index_offset);
+                const float4 vc = tex1Dfetch(g_serialized_vertex_array_texture_ref, face.z + object.serialized_vertex_index_offset);
+
+                // 面上の一点の一様なサンプリング
+                // http://www.cs.princeton.edu/~funk/tog02.pdf
+                float r1, r2;
+                __xorshift_uniform(r1, xors_x, xors_y, xors_z, xors_w);
+                __xorshift_uniform(r2, xors_x, xors_y, xors_z, xors_w);
+                r1 = sqrtf(r1);
+                const float3 random_point = {
+                    (1.0f - r1) * va.x + (r1 * (1.0f - r2)) * vb.x + (r1 * r2) * vc.x,
+                    (1.0f - r1) * va.y + (r1 * (1.0f - r2)) * vb.y + (r1 * r2) * vc.y,
+                    (1.0f - r1) * va.z + (r1 * (1.0f - r2)) * vb.z + (r1 * r2) * vc.z,
+                };
+
+                shadow_ray.origin.x = hit_point.x;
+                shadow_ray.origin.y = hit_point.y;
+                shadow_ray.origin.z = hit_point.z;
+
+                shadow_ray.direction.x = random_point.x - hit_point.x;
+                shadow_ray.direction.y = random_point.y - hit_point.y;
+                shadow_ray.direction.z = random_point.z - hit_point.z;
+                const float light_distance = sqrtf(shadow_ray.direction.x * shadow_ray.direction.x + shadow_ray.direction.y * shadow_ray.direction.y + shadow_ray.direction.z * shadow_ray.direction.z);
+                shadow_ray.direction.x /= light_distance;
+                shadow_ray.direction.y /= light_distance;
+                shadow_ray.direction.z /= light_distance;
+
+                const float dot1 = shadow_ray.direction.x * unit_hit_face_normal.x
+                    + shadow_ray.direction.y * unit_hit_face_normal.y
+                    + shadow_ray.direction.z * unit_hit_face_normal.z;
+
+                // 面の裏側の光源へは到達できないのでスキップ
+                if (dot1 <= 0.0f) {
+                    ray = &primary_ray;
+                    iter += 1;
+                    continue;
+                }
+
+                const float3 edge_ba = {
+                    vb.x - va.x,
+                    vb.y - va.y,
+                    vb.z - va.z,
+                };
+                const float3 edge_ca = {
+                    vc.x - va.x,
+                    vc.y - va.y,
+                    vc.z - va.z,
+                };
+                float3 light_normal;
+                light_normal.x = edge_ba.y * edge_ca.z - edge_ba.z * edge_ca.y;
+                light_normal.y = edge_ba.z * edge_ca.x - edge_ba.x * edge_ca.z;
+                light_normal.z = edge_ba.x * edge_ca.y - edge_ba.y * edge_ca.x;
+                const float norm = sqrtf(light_normal.x * light_normal.x + light_normal.y * light_normal.y + light_normal.z * light_normal.z) + 1e-12;
+                light_normal.x /= norm;
+                light_normal.y /= norm;
+                light_normal.z /= norm;
+                const float dot2 = fabsf(shadow_ray.direction.x * light_normal.x + shadow_ray.direction.y * light_normal.y + shadow_ray.direction.z * light_normal.z);
+
+                // ハック
+                const float r = max(light_distance, 0.5f);
+                g_term = dot1 * dot2 / (r * r);
+                ray = &shadow_ray;
             }
-
-            __rtx_update_ray(
-                ray,
-                ray_direction_inv,
-                hit_point,
-                unit_next_ray_direction);
-
-            // 経路のウェイトを更新
-            float inv_pdf = 2.0f * M_PI;
-            path_weight.r *= hit_color.r * brdf * cosine_term * inv_pdf;
-            path_weight.g *= hit_color.g * brdf * cosine_term * inv_pdf;
-            path_weight.b *= hit_color.b * brdf * cosine_term * inv_pdf;
         }
     }
     global_serialized_render_array[render_buffer_index] = pixel;
 }
 
-void rtx_cuda_launch_mcrt_texture_memory_kernel(
+void rtx_cuda_launch_nee_texture_memory_kernel(
     rtxFaceVertexIndex* gpu_serialized_face_vertex_index_array, int face_vertex_index_array_size,
     rtxVertex* gpu_serialized_vertex_array, int vertex_array_size,
     rtxObject* gpu_serialized_object_array, int object_array_size,
@@ -325,6 +451,8 @@ void rtx_cuda_launch_mcrt_texture_memory_kernel(
     rtxThreadedBVHNode* gpu_serialized_threaded_bvh_node_array, int threaded_bvh_node_array_size,
     rtxRGBAColor* gpu_serialized_color_mapping_array, int color_mapping_array_size,
     rtxUVCoordinate* gpu_serialized_uv_coordinate_array, int uv_coordinate_array_size,
+    int* gpu_light_sampling_table, int light_sampling_table_size,
+    float total_light_face_area,
     rtxRGBAPixel* gpu_serialized_render_array, int render_array_size,
     int num_active_texture_units,
     int num_threads,
@@ -346,7 +474,7 @@ void rtx_cuda_launch_mcrt_texture_memory_kernel(
     cudaBindTexture(0, g_serialized_threaded_bvh_node_array_texture_ref, gpu_serialized_threaded_bvh_node_array, cudaCreateChannelDesc<float4>(), sizeof(rtxThreadedBVHNode) * threaded_bvh_node_array_size);
     cudaBindTexture(0, g_serialized_uv_coordinate_array_texture_ref, gpu_serialized_uv_coordinate_array, cudaCreateChannelDesc<float2>(), sizeof(rtxUVCoordinate) * uv_coordinate_array_size);
 
-    mcrt_texture_memory_kernel<<<num_blocks, num_threads, shared_memory_bytes>>>(
+    nee_texture_memory_kernel<<<num_blocks, num_threads, shared_memory_bytes>>>(
         face_vertex_index_array_size,
         vertex_array_size,
         gpu_serialized_object_array, object_array_size,
@@ -355,6 +483,8 @@ void rtx_cuda_launch_mcrt_texture_memory_kernel(
         threaded_bvh_node_array_size,
         gpu_serialized_color_mapping_array, color_mapping_array_size,
         g_gpu_serialized_mapping_texture_object_array,
+        gpu_light_sampling_table, light_sampling_table_size,
+        total_light_face_area,
         gpu_serialized_render_array,
         num_active_texture_units,
         num_rays_per_thread,

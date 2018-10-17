@@ -1,5 +1,6 @@
 import math
 import time
+import cv2
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -83,23 +84,29 @@ mapping = rtx.SolidColorMapping((0, 1, 1))
 light = rtx.Object(geometry, material, mapping)
 scene.add(light)
 
+geometry = rtx.BoxGeometry(3, 3, 3)
+material = rtx.LambertMaterial(0.95)
+mapping = rtx.SolidColorMapping((1, 1, 1))
+box = rtx.Object(geometry, material, mapping)
+scene.add(box)
+
 screen_width = 64
 screen_height = 64
 
 rt_args = rtx.RayTracingArguments()
-rt_args.num_rays_per_pixel = 4096
-rt_args.max_bounce = 4
+rt_args.num_rays_per_pixel = 1024
+rt_args.max_bounce = 3
 rt_args.next_event_estimation_enabled = False
 
 cuda_args = rtx.CUDAKernelLaunchArguments()
-cuda_args.num_threads = 256
-cuda_args.num_rays_per_thread = 256
+cuda_args.num_threads = 64
+cuda_args.num_rays_per_thread = 64
 
 renderer = rtx.Renderer()
 
 camera = rtx.PerspectiveCamera(
-    eye=(0, -0.5, 6),
-    center=(0, -0.5, 0),
+    eye=(0, 0.0, 6),
+    center=(0, 0.0, 0),
     up=(0, 1, 0),
     fov_rad=math.pi / 3,
     aspect_ratio=screen_width / screen_height,
@@ -109,18 +116,22 @@ camera = rtx.PerspectiveCamera(
 render_buffer = np.zeros((screen_height, screen_width, 3), dtype="float32")
 total_iterations = 30
 camera_rad = 0
-radius = 1
+radius = 6
+start = time.time()
 for n in range(total_iterations):
     renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
     # linear -> sRGB
     pixels = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
+    # pixels = cv2.medianBlur(pixels, 3)
+    # pixels = cv2.bilateralFilter(pixels, 2, 1, 0)
 
     plt.imshow(pixels, interpolation="none")
     plt.pause(1e-8)
 
-    # camera_rad += math.pi / 10
-    # eye = (radius * math.sin(camera_rad), 0.0, radius * math.cos(camera_rad))
-    # camera.look_at(eye=eye, center=(0, 0, 0), up=(0, 1, 0))
+    camera_rad += math.pi / 10
+    eye = (radius * math.sin(camera_rad), 0.0, radius * math.cos(camera_rad))
+    camera.look_at(eye=eye, center=(0, 0.0, 0), up=(0, 1, 0))
 
+print(total_iterations / (time.time() - start))
 image = Image.fromarray(np.uint8(pixels * 255))
 image.save("result.png")
