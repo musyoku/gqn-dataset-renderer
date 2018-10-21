@@ -5,6 +5,7 @@
 #include "material.h"
 #include <memory>
 #include <pybind11/pybind11.h>
+#include <vector>
 
 namespace rtx {
 class Object {
@@ -23,5 +24,12 @@ public:
     std::shared_ptr<Geometry>& geometry();
     std::shared_ptr<LayeredMaterial>& material();
     std::shared_ptr<Mapping>& mapping();
+};
+
+class ObjectGroup : public Shape {
+public:
+    std::vector<std::shared_ptr<Object>> _object_array;
+    ObjectGroup(){};
+    void add(std::shared_ptr<Object> object);
 };
 }

@@ -5,17 +5,17 @@
 #include <pybind11/pybind11.h>
 
 namespace rtx {
-class Geometry {
+class Shape {
 protected:
     void update_model_matrix();
     glm::vec3f _position;
     glm::vec3f _rotation_rad;
     glm::vec3f _scale;
-    glm::mat4 _model_matrix;
     bool _updated;
 
 public:
-    Geometry();
+    glm::mat4 _model_matrix;
+    Shape();
     void set_scale(pybind11::tuple scale);
     void set_scale(float (&scale)[3]);
     void set_position(pybind11::tuple position);
@@ -23,8 +23,13 @@ public:
     void set_rotation(pybind11::tuple rotation_rad);
     void set_rotation(float (&rotation)[3]);
     bool updated();
-    void set_updated(bool updated);
     glm::mat4f model_matrix();
+};
+
+class Geometry : public Shape {
+public:
+    Geometry(){};
+    void set_updated(bool updated);
     virtual int bvh_max_triangles_per_node() const;
     virtual int type() const = 0;
     virtual int num_faces() const = 0;

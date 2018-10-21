@@ -7,6 +7,8 @@
 #include "../core/class/object.h"
 #include "../core/class/scene.h"
 #include "../core/geometry/box.h"
+#include "../core/geometry/cone.h"
+#include "../core/geometry/cylinder.h"
 #include "../core/geometry/plain.h"
 #include "../core/geometry/sphere.h"
 #include "../core/geometry/standard.h"
@@ -26,6 +28,7 @@ using namespace rtx;
 PYBIND11_MODULE(rtx, module)
 {
     // Base classes
+    py::class_<Shape, std::shared_ptr<Shape>>(module, "Shape");
     py::class_<Geometry, std::shared_ptr<Geometry>>(module, "Geometry")
         .def("set_scale", (void (Geometry::*)(py::tuple)) & Geometry::set_scale)
         .def("set_position", (void (Geometry::*)(py::tuple)) & Geometry::set_position)
@@ -36,23 +39,34 @@ PYBIND11_MODULE(rtx, module)
     py::class_<Object, std::shared_ptr<Object>>(module, "Object")
         .def(py::init<std::shared_ptr<Geometry>, std::shared_ptr<Material>, std::shared_ptr<Mapping>>(), py::arg("geometry"), py::arg("material"), py::arg("mapping"))
         .def(py::init<std::shared_ptr<Geometry>, std::shared_ptr<LayeredMaterial>, std::shared_ptr<Mapping>>(), py::arg("geometry"), py::arg("material"), py::arg("mapping"));
+    py::class_<ObjectGroup, std::shared_ptr<ObjectGroup>>(module, "ObjectGroup")
+        .def(py::init<>())
+        .def("set_scale", (void (ObjectGroup::*)(py::tuple)) & ObjectGroup::set_scale)
+        .def("set_position", (void (ObjectGroup::*)(py::tuple)) & ObjectGroup::set_position)
+        .def("set_rotation", (void (ObjectGroup::*)(py::tuple)) & ObjectGroup::set_rotation)
+        .def("add", &ObjectGroup::add);
 
     // Scene
     py::class_<Scene, std::shared_ptr<Scene>>(module, "Scene")
         .def(py::init<py::tuple>(), py::arg("ambient_color"))
-        .def("add", &Scene::add)
+        .def("add", (void (Scene::*)(std::shared_ptr<Object>)) & Scene::add, py::arg("add"))
+        .def("add", (void (Scene::*)(std::shared_ptr<ObjectGroup>)) & Scene::add, py::arg("add"))
         .def("num_triangles", &Scene::num_triangles);
 
     // Geometries
-    py::class_<SphereGeometry, Geometry, std::shared_ptr<SphereGeometry>>(module, "SphereGeometry")
+    py::class_<SphereGeometry, Geometry, Shape, std::shared_ptr<SphereGeometry>>(module, "SphereGeometry")
         .def(py::init<float>(), py::arg("radius"));
-    py::class_<StandardGeometry, Geometry, std::shared_ptr<StandardGeometry>>(module, "StandardGeometry")
+    py::class_<StandardGeometry, Geometry, Shape, std::shared_ptr<StandardGeometry>>(module, "StandardGeometry")
         .def(py::init<py::array_t<int, py::array::c_style>, py::array_t<float, py::array::c_style>>(), py::arg("face_vertex_indeces"), py::arg("vertices"))
         .def(py::init<py::array_t<int, py::array::c_style>, py::array_t<float, py::array::c_style>, int>(), py::arg("face_vertex_indeces"), py::arg("vertices"), py::arg("bvh_max_triangles_per_node"));
-    py::class_<PlainGeometry, Geometry, std::shared_ptr<PlainGeometry>>(module, "PlainGeometry")
+    py::class_<PlainGeometry, Geometry, Shape, std::shared_ptr<PlainGeometry>>(module, "PlainGeometry")
         .def(py::init<float, float>(), py::arg("width"), py::arg("height"));
-    py::class_<BoxGeometry, Geometry, std::shared_ptr<BoxGeometry>>(module, "BoxGeometry")
+    py::class_<BoxGeometry, Geometry, Shape, std::shared_ptr<BoxGeometry>>(module, "BoxGeometry")
         .def(py::init<float, float, float>(), py::arg("width"), py::arg("height"), py::arg("depth"));
+    py::class_<CylinderGeometry, Geometry, Shape, std::shared_ptr<CylinderGeometry>>(module, "CylinderGeometry")
+        .def(py::init<float, float>(), py::arg("radius"), py::arg("height"));
+    py::class_<ConeGeometry, Geometry, Shape, std::shared_ptr<ConeGeometry>>(module, "ConeGeometry")
+        .def(py::init<float, float>(), py::arg("radius"), py::arg("height"));
 
     // Materials
     py::class_<LambertMaterial, Material, std::shared_ptr<LambertMaterial>>(module, "LambertMaterial")
@@ -60,8 +74,8 @@ PYBIND11_MODULE(rtx, module)
     py::class_<OrenNayarMaterial, Material, std::shared_ptr<OrenNayarMaterial>>(module, "OrenNayarMaterial")
         .def(py::init<float, float>(), py::arg("albedo"), py::arg("roughness"));
     py::class_<EmissiveMaterial, Material, std::shared_ptr<EmissiveMaterial>>(module, "EmissiveMaterial")
-        .def(py::init<float>(), py::arg("brightness"))
-        .def(py::init<float, float>(), py::arg("brightness"), py::arg("visible"));
+        .def(py::init<float>(), py::arg("intensity"))
+        .def(py::init<float, float>(), py::arg("intensity"), py::arg("visible"));
     py::class_<LayeredMaterial, std::shared_ptr<LayeredMaterial>>(module, "LayeredMaterial")
         .def(py::init<std::shared_ptr<Material>>())
         .def(py::init<std::shared_ptr<Material>, std::shared_ptr<Material>>())
@@ -78,6 +92,7 @@ PYBIND11_MODULE(rtx, module)
         .def(py::init<>())
         .def_property("num_rays_per_pixel", &RayTracingArguments::num_rays_per_pixel, &RayTracingArguments::set_num_rays_per_pixel)
         .def_property("next_event_estimation_enabled", &RayTracingArguments::next_event_estimation_enabled, &RayTracingArguments::set_next_event_estimation_enabled)
+        .def_property("supersampling_enabled", &RayTracingArguments::supersampling_enabled, &RayTracingArguments::set_supersampling_enabled)
         .def_property("max_bounce", &RayTracingArguments::max_bounce, &RayTracingArguments::set_max_bounce);
     py::class_<CUDAKernelLaunchArguments, std::shared_ptr<CUDAKernelLaunchArguments>>(module, "CUDAKernelLaunchArguments")
         .def(py::init<>())
@@ -86,11 +101,13 @@ PYBIND11_MODULE(rtx, module)
 
     // Cameras
     py::class_<PerspectiveCamera, Camera, std::shared_ptr<PerspectiveCamera>>(module, "PerspectiveCamera")
+        .def(py::init<>())
         .def(py::init<py::tuple, py::tuple, py::tuple, float, float, float, float>(),
             py::arg("eye"), py::arg("center"), py::arg("up"), py::arg("fov_rad"), py::arg("aspect_ratio"), py::arg("z_near"), py::arg("z_far"))
         .def_property("fov_rad", &PerspectiveCamera::fov_rad, &PerspectiveCamera::set_fov_rad)
         .def("look_at", (void (PerspectiveCamera::*)(py::tuple, py::tuple, py::tuple)) & PerspectiveCamera::look_at, py::arg("eye"), py::arg("center"), py::arg("up"));
     py::class_<OrthographicCamera, Camera, std::shared_ptr<OrthographicCamera>>(module, "OrthographicCamera")
+        .def(py::init<>())
         .def(py::init<py::tuple, py::tuple, py::tuple>(), py::arg("eye"), py::arg("center"), py::arg("up"))
         .def("look_at", (void (OrthographicCamera::*)(py::tuple, py::tuple, py::tuple)) & OrthographicCamera::look_at, py::arg("eye"), py::arg("center"), py::arg("up"));
 

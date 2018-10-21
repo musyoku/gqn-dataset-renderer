@@ -260,7 +260,7 @@ __global__ void mcrt_texture_memory_kernel(
                                 hit_point.y - center.y,
                                 hit_point.z - center.z,
                             };
-                            const float norm = sqrtf(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z) + 1e-12;
+                            const float norm = sqrtf(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
 
                             unit_hit_face_normal.x = normal.x / norm;
                             unit_hit_face_normal.y = normal.y / norm;
@@ -296,7 +296,7 @@ __global__ void mcrt_texture_memory_kernel(
             rtxRGBAColor hit_color;
             bool did_hit_light = false;
             float brdf = 0.0f;
-            __rtx_fetch_hit_color_in_texture_memory(
+            __rtx_fetch_color_in_texture_memory(
                 hit_point,
                 unit_hit_face_normal,
                 hit_object,
@@ -313,10 +313,10 @@ __global__ void mcrt_texture_memory_kernel(
 
             // 光源に当たった場合トレースを打ち切り
             if (did_hit_light) {
-                float brightness = brdf;
-                pixel.r += hit_color.r * path_weight.r * brightness;
-                pixel.g += hit_color.g * path_weight.g * brightness;
-                pixel.b += hit_color.b * path_weight.b * brightness;
+                float intensity = brdf;
+                pixel.r += hit_color.r * path_weight.r * intensity;
+                pixel.g += hit_color.g * path_weight.g * intensity;
+                pixel.b += hit_color.b * path_weight.b * intensity;
                 break;
             }
 

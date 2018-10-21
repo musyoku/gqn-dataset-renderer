@@ -1,4 +1,6 @@
 #pragma once
+#include "../../geometry/cone.h"
+#include "../../geometry/cylinder.h"
 #include "../../geometry/sphere.h"
 #include "../../geometry/standard.h"
 #include "../../header/array.h"
@@ -23,6 +25,10 @@ namespace bvh {
             int& current_assigned_face_index_offset);
         Node(std::vector<int> assigned_face_indices,
             std::shared_ptr<SphereGeometry>& geometry);
+        Node(std::vector<int> assigned_face_indices,
+            std::shared_ptr<CylinderGeometry>& geometry);
+        Node(std::vector<int> assigned_face_indices,
+            std::shared_ptr<ConeGeometry>& geometry);
         std::shared_ptr<Node> _left;
         std::shared_ptr<Node> _right;
         std::shared_ptr<Node> _miss;

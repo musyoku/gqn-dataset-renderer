@@ -3,7 +3,6 @@
 #include "../geometry/box.h"
 #include "../geometry/sphere.h"
 #include "../geometry/standard.h"
-#include "../header/enum.h"
 #include "../mapping/solid_color.h"
 #include "../material/emissive.h"
 #include "../material/lambert.h"
@@ -47,16 +46,67 @@ Renderer::~Renderer()
 void Renderer::transform_objects_to_view_space()
 {
     int num_objects = _scene->_object_array.size();
+    for (auto& group : _scene->_object_group_array) {
+        num_objects += group->_object_array.size();
+    }
     if (num_objects == 0) {
         return;
     }
-    _transformed_object_array = std::vector<std::shared_ptr<Object>>();
-    _transformed_object_array.reserve(num_objects);
-    for (auto& object : _scene->_object_array) {
+    _transformed_object_array = std::vector<std::shared_ptr<Object>>(num_objects);
+
+    for (unsigned int n = 0; n < _scene->_object_array.size(); n++) {
+        auto& object = _scene->_object_array[n];
         auto& geometry = object->geometry();
-        glm::mat4 transformation_matrix = _camera->view_matrix() * geometry->model_matrix();
+        glm::mat4 transformation_matrix = _camera->_view_matrix * geometry->_model_matrix;
         auto transformed_geometry = geometry->transoform(transformation_matrix);
-        _transformed_object_array.emplace_back(std::make_shared<Object>(transformed_geometry, object->material(), object->mapping()));
+        _transformed_object_array.at(n) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
+    }
+    int offset = _scene->_object_array.size();
+    for (unsigned int group_index = 0; group_index < _scene->_object_group_array.size(); group_index++) {
+        auto& group = _scene->_object_group_array[group_index];
+        glm::mat4 view_matrix = _camera->_view_matrix * group->_model_matrix;
+        for (unsigned int n = 0; n < group->_object_array.size(); n++) {
+            auto& object = group->_object_array[n];
+            auto& geometry = object->geometry();
+            glm::mat4 transformation_matrix = view_matrix * geometry->_model_matrix;
+            auto transformed_geometry = geometry->transoform(transformation_matrix);
+            _transformed_object_array.at(n + offset) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
+        }
+        offset += group->_object_array.size();
+    }
+}
+void Renderer::transform_objects_to_view_space_parallel()
+{
+    int num_objects = _scene->_object_array.size();
+    for (auto& group : _scene->_object_group_array) {
+        num_objects += group->_object_array.size();
+    }
+    if (num_objects == 0) {
+        return;
+    }
+    _transformed_object_array = std::vector<std::shared_ptr<Object>>(num_objects);
+
+#pragma omp parallel for
+    for (unsigned int n = 0; n < _scene->_object_array.size(); n++) {
+        auto& object = _scene->_object_array[n];
+        auto& geometry = object->geometry();
+        glm::mat4 transformation_matrix = _camera->_view_matrix * geometry->_model_matrix;
+        auto transformed_geometry = geometry->transoform(transformation_matrix);
+        _transformed_object_array.at(n) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
+    }
+    int offset = _scene->_object_array.size();
+    for (unsigned int group_index = 0; group_index < _scene->_object_group_array.size(); group_index++) {
+        auto& group = _scene->_object_group_array[group_index];
+        glm::mat4 view_matrix = _camera->_view_matrix * group->_model_matrix;
+#pragma omp parallel for
+        for (unsigned int n = 0; n < group->_object_array.size(); n++) {
+            auto& object = group->_object_array[n];
+            auto& geometry = object->geometry();
+            glm::mat4 transformation_matrix = view_matrix * geometry->_model_matrix;
+            auto transformed_geometry = geometry->transoform(transformation_matrix);
+            _transformed_object_array.at(n + offset) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
+        }
+        offset += group->_object_array.size();
     }
 }
 void Renderer::serialize_geometries()
@@ -143,9 +193,14 @@ void Renderer::serialize_light_sampling_table()
     int num_lights = 0;
     for (auto& object : _transformed_object_array) {
         auto& material = object->material();
-        if (material->is_emissive()) {
-            num_lights++;
+        if (material->is_emissive() == false) {
+            continue;
         }
+        auto& geometry = object->geometry();
+        if (geometry->type() != RTXGeometryTypeStandard) {
+            continue;
+        }
+        num_lights++;
     }
     int table_index = 0;
     _cpu_light_sampling_table = rtx::array<int>(num_lights);
@@ -316,11 +371,34 @@ void Renderer::launch_mcrt_kernel()
 
     int num_active_texture_units = _texture_mapping_ptr_array.size();
 
-    float ray_origin_z = 1.0f;
+    float ray_origin_z = 0.0f;
     if (_camera->type() == RTXCameraTypePerspective) {
         PerspectiveCamera* perspective = static_cast<PerspectiveCamera*>(_camera.get());
         ray_origin_z = 1.0f / tanf(perspective->_fov_rad / 2.0f);
+    } else if (_camera->type() == RTXCameraTypeOrthographic) {
+        ray_origin_z = sqrtf(_camera->_eye.x * _camera->_eye.x + _camera->_eye.y * _camera->_eye.y + _camera->_eye.z * _camera->_eye.z);
     }
+
+    rtxMCRTKernelArguments args;
+    args.num_active_texture_units = _texture_mapping_ptr_array.size();
+    args.ambient_color = _scene->_ambient_color;
+    args.camera_type = _camera->type();
+    args.max_bounce = _rt_args->max_bounce();
+    args.num_rays_per_pixel = _rt_args->num_rays_per_pixel();
+    args.num_rays_per_thread = _cuda_args->num_rays_per_thread();
+    args.ray_origin_z = ray_origin_z;
+    args.screen_height = _screen_height;
+    args.screen_width = _screen_width;
+    args.face_vertex_index_array_size = _cpu_face_vertex_indices_array.size();
+    args.vertex_array_size = _cpu_vertex_array.size();
+    args.object_array_size = _cpu_object_array.size();
+    args.material_attribute_byte_array_size = _cpu_material_attribute_byte_array.size();
+    args.threaded_bvh_array_size = _cpu_threaded_bvh_array.size();
+    args.color_mapping_array_size = _cpu_color_mapping_array.size();
+    args.threaded_bvh_node_array_size = _cpu_threaded_bvh_node_array.size();
+    args.uv_coordinate_array_size = _cpu_serialized_uv_coordinate_array.size();
+    args.curand_seed = _total_frames;
+    args.supersampling_enabled = _rt_args->supersampling_enabled();
 
     size_t required_shared_memory_bytes = 0;
     required_shared_memory_bytes += _cpu_face_vertex_indices_array.bytes();
@@ -333,31 +411,21 @@ void Renderer::launch_mcrt_kernel()
     required_shared_memory_bytes += _cpu_serialized_uv_coordinate_array.bytes();
     required_shared_memory_bytes += rtx_cuda_get_cudaTextureObject_t_bytes() * num_active_texture_units;
 
-    int curand_seed = _total_frames;
-
     if (required_shared_memory_bytes <= available_shared_memory_bytes) {
         rtx_cuda_launch_mcrt_shared_memory_kernel(
-            _gpu_face_vertex_indices_array, _cpu_face_vertex_indices_array.size(),
-            _gpu_vertex_array, _cpu_vertex_array.size(),
-            _gpu_object_array, _cpu_object_array.size(),
-            _gpu_material_attribute_byte_array, _cpu_material_attribute_byte_array.size(),
-            _gpu_threaded_bvh_array, _cpu_threaded_bvh_array.size(),
-            _gpu_threaded_bvh_node_array, _cpu_threaded_bvh_node_array.size(),
-            _gpu_color_mapping_array, _cpu_color_mapping_array.size(),
-            _gpu_serialized_uv_coordinate_array, _cpu_serialized_uv_coordinate_array.size(),
-            _gpu_render_array, _cpu_render_array.size(),
-            num_active_texture_units,
+            _gpu_face_vertex_indices_array,
+            _gpu_vertex_array,
+            _gpu_object_array,
+            _gpu_material_attribute_byte_array,
+            _gpu_threaded_bvh_array,
+            _gpu_threaded_bvh_node_array,
+            _gpu_color_mapping_array,
+            _gpu_serialized_uv_coordinate_array,
+            _gpu_render_array,
+            args,
             _cuda_args->num_threads(),
             num_required_blocks,
-            num_rays_per_thread,
-            num_rays_per_pixel,
-            required_shared_memory_bytes,
-            _rt_args->max_bounce(),
-            _camera->type(),
-            ray_origin_z,
-            _screen_width, _screen_height,
-            _scene->_ambient_color,
-            curand_seed);
+            required_shared_memory_bytes);
         return;
     }
     required_shared_memory_bytes = 0;
@@ -371,51 +439,35 @@ void Renderer::launch_mcrt_kernel()
         // テクスチャメモリに直列データを入れる場合
         // こっちの方が若干早い
         rtx_cuda_launch_mcrt_texture_memory_kernel(
-            _gpu_face_vertex_indices_array, _cpu_face_vertex_indices_array.size(),
-            _gpu_vertex_array, _cpu_vertex_array.size(),
-            _gpu_object_array, _cpu_object_array.size(),
-            _gpu_material_attribute_byte_array, _cpu_material_attribute_byte_array.size(),
-            _gpu_threaded_bvh_array, _cpu_threaded_bvh_array.size(),
-            _gpu_threaded_bvh_node_array, _cpu_threaded_bvh_node_array.size(),
-            _gpu_color_mapping_array, _cpu_color_mapping_array.size(),
-            _gpu_serialized_uv_coordinate_array, _cpu_serialized_uv_coordinate_array.size(),
-            _gpu_render_array, _cpu_render_array.size(),
-            num_active_texture_units,
+            _gpu_face_vertex_indices_array,
+            _gpu_vertex_array,
+            _gpu_object_array,
+            _gpu_material_attribute_byte_array,
+            _gpu_threaded_bvh_array,
+            _gpu_threaded_bvh_node_array,
+            _gpu_color_mapping_array,
+            _gpu_serialized_uv_coordinate_array,
+            _gpu_render_array,
+            args,
             _cuda_args->num_threads(),
             num_required_blocks,
-            num_rays_per_thread,
-            num_rays_per_pixel,
-            required_shared_memory_bytes,
-            _rt_args->max_bounce(),
-            _camera->type(),
-            ray_origin_z,
-            _screen_width, _screen_height,
-            _scene->_ambient_color,
-            curand_seed);
+            required_shared_memory_bytes);
 
         // グローバルメモリに直列データを入れる場合
         // rtx_cuda_launch_mcrt_global_memory_kernel(
-        //     _gpu_face_vertex_indices_array, _cpu_face_vertex_indices_array.size(),
-        //     _gpu_vertex_array, _cpu_vertex_array.size(),
-        //     _gpu_object_array, _cpu_object_array.size(),
-        //     _gpu_material_attribute_byte_array, _cpu_material_attribute_byte_array.size(),
-        //     _gpu_threaded_bvh_array, _cpu_threaded_bvh_array.size(),
-        //     _gpu_threaded_bvh_node_array, _cpu_threaded_bvh_node_array.size(),
-        //     _gpu_color_mapping_array, _cpu_color_mapping_array.size(),
-        //     _gpu_serialized_uv_coordinate_array, _cpu_serialized_uv_coordinate_array.size(),
-        //     _gpu_render_array, _cpu_render_array.size(),
-        //     num_active_texture_units,
+        //     _gpu_face_vertex_indices_array,
+        //     _gpu_vertex_array,
+        //     _gpu_object_array,
+        //     _gpu_material_attribute_byte_array,
+        //     _gpu_threaded_bvh_array,
+        //     _gpu_threaded_bvh_node_array,
+        //     _gpu_color_mapping_array,
+        //     _gpu_serialized_uv_coordinate_array,
+        //     _gpu_render_array,
+        //     args,
         //     _cuda_args->num_threads(),
         //     num_required_blocks,
-        //     num_rays_per_thread,
-        //     num_rays_per_pixel,
-        //     required_shared_memory_bytes,
-        //     _rt_args->max_bounce(),
-        //     _camera->type(),
-        //     ray_origin_z,
-        //     _screen_width, _screen_height,
-        // _scene->_ambient_color,
-        //     curand_seed);
+        //     required_shared_memory_bytes);
         return;
     }
 
@@ -434,11 +486,36 @@ void Renderer::launch_nee_kernel()
 
     int num_active_texture_units = _texture_mapping_ptr_array.size();
 
-    float ray_origin_z = 1.0f;
+    float ray_origin_z = 0.0f;
     if (_camera->type() == RTXCameraTypePerspective) {
         PerspectiveCamera* perspective = static_cast<PerspectiveCamera*>(_camera.get());
         ray_origin_z = 1.0f / tanf(perspective->_fov_rad / 2.0f);
+    } else if (_camera->type() == RTXCameraTypeOrthographic) {
+        ray_origin_z = sqrtf(_camera->_eye.x * _camera->_eye.x + _camera->_eye.y * _camera->_eye.y + _camera->_eye.z * _camera->_eye.z);
     }
+
+    rtxNEEKernelArguments args;
+    args.num_active_texture_units = _texture_mapping_ptr_array.size();
+    args.ambient_color = _scene->_ambient_color;
+    args.camera_type = _camera->type();
+    args.max_bounce = _rt_args->max_bounce();
+    args.num_rays_per_pixel = _rt_args->num_rays_per_pixel();
+    args.num_rays_per_thread = _cuda_args->num_rays_per_thread();
+    args.ray_origin_z = ray_origin_z;
+    args.screen_height = _screen_height;
+    args.screen_width = _screen_width;
+    args.face_vertex_index_array_size = _cpu_face_vertex_indices_array.size();
+    args.vertex_array_size = _cpu_vertex_array.size();
+    args.object_array_size = _cpu_object_array.size();
+    args.material_attribute_byte_array_size = _cpu_material_attribute_byte_array.size();
+    args.threaded_bvh_array_size = _cpu_threaded_bvh_array.size();
+    args.color_mapping_array_size = _cpu_color_mapping_array.size();
+    args.threaded_bvh_node_array_size = _cpu_threaded_bvh_node_array.size();
+    args.uv_coordinate_array_size = _cpu_serialized_uv_coordinate_array.size();
+    args.light_sampling_table_size = _cpu_light_sampling_table.size();
+    args.total_light_face_area = _total_light_face_area;
+    args.curand_seed = _total_frames;
+    args.supersampling_enabled = _rt_args->supersampling_enabled();
 
     size_t required_shared_memory_bytes = 0;
     required_shared_memory_bytes += _cpu_face_vertex_indices_array.bytes();
@@ -452,33 +529,22 @@ void Renderer::launch_nee_kernel()
     required_shared_memory_bytes += _cpu_light_sampling_table.bytes();
     required_shared_memory_bytes += rtx_cuda_get_cudaTextureObject_t_bytes() * num_active_texture_units;
 
-    int curand_seed = _total_frames;
-
     if (required_shared_memory_bytes <= available_shared_memory_bytes) {
         rtx_cuda_launch_nee_shared_memory_kernel(
-            _gpu_face_vertex_indices_array, _cpu_face_vertex_indices_array.size(),
-            _gpu_vertex_array, _cpu_vertex_array.size(),
-            _gpu_object_array, _cpu_object_array.size(),
-            _gpu_material_attribute_byte_array, _cpu_material_attribute_byte_array.size(),
-            _gpu_threaded_bvh_array, _cpu_threaded_bvh_array.size(),
-            _gpu_threaded_bvh_node_array, _cpu_threaded_bvh_node_array.size(),
-            _gpu_color_mapping_array, _cpu_color_mapping_array.size(),
-            _gpu_serialized_uv_coordinate_array, _cpu_serialized_uv_coordinate_array.size(),
-            _gpu_light_sampling_table, _cpu_light_sampling_table.size(),
-            _total_light_face_area,
-            _gpu_render_array, _cpu_render_array.size(),
-            num_active_texture_units,
+            _gpu_face_vertex_indices_array,
+            _gpu_vertex_array,
+            _gpu_object_array,
+            _gpu_material_attribute_byte_array,
+            _gpu_threaded_bvh_array,
+            _gpu_threaded_bvh_node_array,
+            _gpu_color_mapping_array,
+            _gpu_serialized_uv_coordinate_array,
+            _gpu_light_sampling_table,
+            _gpu_render_array,
+            args,
             _cuda_args->num_threads(),
             num_required_blocks,
-            num_rays_per_thread,
-            num_rays_per_pixel,
-            required_shared_memory_bytes,
-            _rt_args->max_bounce(),
-            _camera->type(),
-            ray_origin_z,
-            _screen_width, _screen_height,
-            _scene->_ambient_color,
-            curand_seed);
+            required_shared_memory_bytes);
         return;
     }
     required_shared_memory_bytes = 0;
@@ -493,55 +559,37 @@ void Renderer::launch_nee_kernel()
         // テクスチャメモリに直列データを入れる場合
         // こっちの方が若干早い
         rtx_cuda_launch_nee_texture_memory_kernel(
-            _gpu_face_vertex_indices_array, _cpu_face_vertex_indices_array.size(),
-            _gpu_vertex_array, _cpu_vertex_array.size(),
-            _gpu_object_array, _cpu_object_array.size(),
-            _gpu_material_attribute_byte_array, _cpu_material_attribute_byte_array.size(),
-            _gpu_threaded_bvh_array, _cpu_threaded_bvh_array.size(),
-            _gpu_threaded_bvh_node_array, _cpu_threaded_bvh_node_array.size(),
-            _gpu_color_mapping_array, _cpu_color_mapping_array.size(),
-            _gpu_serialized_uv_coordinate_array, _cpu_serialized_uv_coordinate_array.size(),
-            _gpu_light_sampling_table, _cpu_light_sampling_table.size(),
-            _total_light_face_area,
-            _gpu_render_array, _cpu_render_array.size(),
-            num_active_texture_units,
+            _gpu_face_vertex_indices_array,
+            _gpu_vertex_array,
+            _gpu_object_array,
+            _gpu_material_attribute_byte_array,
+            _gpu_threaded_bvh_array,
+            _gpu_threaded_bvh_node_array,
+            _gpu_color_mapping_array,
+            _gpu_serialized_uv_coordinate_array,
+            _gpu_light_sampling_table,
+            _gpu_render_array,
+            args,
             _cuda_args->num_threads(),
             num_required_blocks,
-            num_rays_per_thread,
-            num_rays_per_pixel,
-            required_shared_memory_bytes,
-            _rt_args->max_bounce(),
-            _camera->type(),
-            ray_origin_z,
-            _screen_width, _screen_height,
-            _scene->_ambient_color,
-            curand_seed);
+            required_shared_memory_bytes);
 
         // グローバルメモリに直列データを入れる場合
         // rtx_cuda_launch_nee_global_memory_kernel(
-        //     _gpu_face_vertex_indices_array, _cpu_face_vertex_indices_array.size(),
-        //     _gpu_vertex_array, _cpu_vertex_array.size(),
-        //     _gpu_object_array, _cpu_object_array.size(),
-        //     _gpu_material_attribute_byte_array, _cpu_material_attribute_byte_array.size(),
-        //     _gpu_threaded_bvh_array, _cpu_threaded_bvh_array.size(),
-        //     _gpu_threaded_bvh_node_array, _cpu_threaded_bvh_node_array.size(),
-        //     _gpu_color_mapping_array, _cpu_color_mapping_array.size(),
-        //     _gpu_serialized_uv_coordinate_array, _cpu_serialized_uv_coordinate_array.size(),
-        //     _gpu_light_sampling_table, _cpu_light_sampling_table.size(),
-        //     _total_light_face_area,
-        //     _gpu_render_array, _cpu_render_array.size(),
-        //     num_active_texture_units,
+        //     _gpu_face_vertex_indices_array,
+        //     _gpu_vertex_array,
+        //     _gpu_object_array,
+        //     _gpu_material_attribute_byte_array,
+        //     _gpu_threaded_bvh_array,
+        //     _gpu_threaded_bvh_node_array,
+        //     _gpu_color_mapping_array,
+        //     _gpu_serialized_uv_coordinate_array,
+        //     _gpu_light_sampling_table,
+        //     _gpu_render_array,
+        //     args,
         //     _cuda_args->num_threads(),
         //     num_required_blocks,
-        //     num_rays_per_thread,
-        //     num_rays_per_pixel,
-        //     required_shared_memory_bytes,
-        //     _rt_args->max_bounce(),
-        //     _camera->type(),
-        //     ray_origin_z,
-        //     _screen_width, _screen_height,
-        // _scene->_ambient_color,
-        //     curand_seed);
+        //     required_shared_memory_bytes);
         return;
     }
 
@@ -549,8 +597,6 @@ void Renderer::launch_nee_kernel()
 }
 void Renderer::render_objects(int height, int width)
 {
-    auto start = std::chrono::system_clock::now();
-
     bool geometry_updated = false;
     bool should_update_render_buffer = false;
     bool geometry_size_changed = false;
@@ -627,6 +673,7 @@ void Renderer::render_objects(int height, int width)
             rtx_cuda_malloc((void**)&_gpu_serialized_uv_coordinate_array, _cpu_serialized_uv_coordinate_array.bytes());
         }
     }
+
     if (should_transfer_to_gpu) {
         rtx_cuda_memcpy_host_to_device((void*)_gpu_face_vertex_indices_array, (void*)_cpu_face_vertex_indices_array.data(), _cpu_face_vertex_indices_array.bytes());
         rtx_cuda_memcpy_host_to_device((void*)_gpu_vertex_array, (void*)_cpu_vertex_array.data(), _cpu_vertex_array.bytes());
@@ -659,23 +706,14 @@ void Renderer::render_objects(int height, int width)
 
     auto end = std::chrono::system_clock::now();
     double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    printf("preprocessing: %lf msec\n", elapsed);
 
-    start = std::chrono::system_clock::now();
     if (_rt_args->next_event_estimation_enabled()) {
         launch_nee_kernel();
     } else {
         launch_mcrt_kernel();
     }
-    end = std::chrono::system_clock::now();
-    elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    printf("kernel: %lf msec\n", elapsed);
 
-    start = std::chrono::system_clock::now();
     rtx_cuda_memcpy_device_to_host((void*)_cpu_render_array.data(), (void*)_gpu_render_array, _cpu_render_array.bytes());
-    end = std::chrono::system_clock::now();
-    elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    printf("memcpy: %lf msec\n", elapsed);
 
     _scene->set_updated(false);
     _camera->set_updated(false);
@@ -707,9 +745,6 @@ void Renderer::render_objects(int height, int width)
             _cpu_render_buffer_array[y * width * 3 + x * 3] = pixel_buffer;
         }
     }
-    end = std::chrono::system_clock::now();
-    elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    printf("reduce_sum: %lf msec\n", elapsed);
 }
 void Renderer::check_arguments()
 {
