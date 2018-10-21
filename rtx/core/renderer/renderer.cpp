@@ -704,9 +704,6 @@ void Renderer::render_objects(int height, int width)
         _screen_width = width;
     }
 
-    auto end = std::chrono::system_clock::now();
-    double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
     if (_rt_args->next_event_estimation_enabled()) {
         launch_nee_kernel();
     } else {
@@ -726,7 +723,6 @@ void Renderer::render_objects(int height, int width)
     int num_rays_per_thread = _cuda_args->num_rays_per_thread();
     int num_threads_per_pixel = int(ceilf(float(num_rays_per_pixel) / float(num_rays_per_thread)));
 
-    start = std::chrono::system_clock::now();
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             rtxRGBAPixel pixel_buffer = _cpu_render_buffer_array[y * width * 3 + x * 3];

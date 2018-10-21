@@ -1,13 +1,14 @@
-import math
-import time
 import argparse
-import random
 import colorsys
+import math
+import random
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
+from tqdm import tqdm
 
+import gqn
 import rtx
 
 
@@ -69,19 +70,20 @@ def build_scene(color_array):
         scene.add(cube)
 
     # Place lights
+    size = 50
     group = rtx.ObjectGroup()
-    geometry = rtx.PlainGeometry(10, 10)
+    geometry = rtx.PlainGeometry(size, size)
     geometry.set_rotation((0, math.pi / 2, 0))
-    geometry.set_position((-5, 0, 0))
-    material = rtx.EmissiveMaterial(10.0, visible=False)
+    geometry.set_position((-10, 0, 0))
+    material = rtx.EmissiveMaterial(10, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
     group.add(light)
 
-    geometry = rtx.PlainGeometry(10, 10)
+    geometry = rtx.PlainGeometry(size, size)
     geometry.set_rotation((0, -math.pi / 2, 0))
-    geometry.set_position((5, 0, 0))
-    material = rtx.EmissiveMaterial(0.5, visible=False)
+    geometry.set_position((10, 0, 0))
+    material = rtx.EmissiveMaterial(1, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
     group.add(light)
@@ -93,6 +95,7 @@ def build_scene(color_array):
 
 
 def main():
+    random.seed(0)
     # Initialize colors
     color_array = []
     for n in range(args.num_colors):
@@ -108,42 +111,62 @@ def main():
     # Setting up a raytracer
     rt_args = rtx.RayTracingArguments()
     rt_args.num_rays_per_pixel = 512
-    rt_args.max_bounce = 3
-    rt_args.next_event_estimation_enabled = True
+    rt_args.max_bounce = 2
+    rt_args.next_event_estimation_enabled = False
     rt_args.supersampling_enabled = False
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
-    cuda_args.num_threads = 128
-    cuda_args.num_rays_per_thread = 32
+    cuda_args.num_threads = 64
+    cuda_args.num_rays_per_thread = 16
 
     renderer = rtx.Renderer()
     render_buffer = np.zeros(
         (screen_height, screen_width, 3), dtype=np.float32)
 
-    for _ in range(args.total_observations):
-        scene = build_scene(color_array)
+    dataset = gqn.archiver.Archiver(
+        directory=args.output_directory,
+        total_observations=args.total_observations,
+        num_observations_per_file=min(args.num_observations_per_file,
+                                      args.total_observations),
+        image_size=(args.image_size, args.image_size),
+        num_views_per_scene=args.num_views_per_scene,
+        start_file_number=args.start_file_number)
 
-        view_radius = 2
+    for _ in tqdm(range(args.total_observations)):
+        scene = build_scene(color_array)
+        scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
+                                            args.num_views_per_scene)
+
+        view_radius = 3
         camera = rtx.OrthographicCamera(
             eye=(0, 1, 1), center=(0, 0, 0), up=(0, 1, 0))
 
-        total_iterations = 3000
-        cos = 0
+        rotation = 0
         for _ in range(args.num_views_per_scene):
-            eye = (view_radius * math.sin(cos), view_radius,
-                   view_radius * math.cos(cos))
+            eye = np.random.normal(size=3)
+            eye = tuple(view_radius * (eye / np.linalg.norm(eye)))
+
+            eye = (2 * math.cos(rotation), 2, 2 * math.sin(rotation))
             center = (0, 0, 0)
             camera.look_at(eye, center, up=(0, 1, 0))
 
             renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
 
             # Convert to sRGB
-            pixels = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
+            image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
+            image = np.uint8(image * 255)
 
-            plt.imshow(pixels, interpolation="none")
-            plt.pause(1e-8)
+            yaw = gqn.math.yaw(eye, center)
+            pitch = gqn.math.pitch(eye, center)
+            scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
+                           math.cos(pitch), math.sin(pitch))
 
-            cos += 0.1
+            # plt.imshow(image, interpolation="none")
+            # plt.pause(1e-8)
+
+            rotation += math.pi / 16
+
+        dataset.add(scene_data)
 
 
 if __name__ == "__main__":
