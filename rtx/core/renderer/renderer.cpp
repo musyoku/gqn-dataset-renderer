@@ -10,6 +10,7 @@
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <omp.h>
 #include <vector>
 
 namespace rtx {
@@ -64,6 +65,40 @@ void Renderer::transform_objects_to_view_space()
     for (unsigned int group_index = 0; group_index < _scene->_object_group_array.size(); group_index++) {
         auto& group = _scene->_object_group_array[group_index];
         glm::mat4 view_matrix = _camera->_view_matrix * group->_model_matrix;
+        for (unsigned int n = 0; n < group->_object_array.size(); n++) {
+            auto& object = group->_object_array[n];
+            auto& geometry = object->geometry();
+            glm::mat4 transformation_matrix = view_matrix * geometry->_model_matrix;
+            auto transformed_geometry = geometry->transoform(transformation_matrix);
+            _transformed_object_array.at(n + offset) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
+        }
+        offset += group->_object_array.size();
+    }
+}
+void Renderer::transform_objects_to_view_space_parallel()
+{
+    int num_objects = _scene->_object_array.size();
+    for (auto& group : _scene->_object_group_array) {
+        num_objects += group->_object_array.size();
+    }
+    if (num_objects == 0) {
+        return;
+    }
+    _transformed_object_array = std::vector<std::shared_ptr<Object>>(num_objects);
+
+#pragma omp parallel for
+    for (unsigned int n = 0; n < _scene->_object_array.size(); n++) {
+        auto& object = _scene->_object_array[n];
+        auto& geometry = object->geometry();
+        glm::mat4 transformation_matrix = _camera->_view_matrix * geometry->_model_matrix;
+        auto transformed_geometry = geometry->transoform(transformation_matrix);
+        _transformed_object_array.at(n) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
+    }
+    int offset = _scene->_object_array.size();
+    for (unsigned int group_index = 0; group_index < _scene->_object_group_array.size(); group_index++) {
+        auto& group = _scene->_object_group_array[group_index];
+        glm::mat4 view_matrix = _camera->_view_matrix * group->_model_matrix;
+#pragma omp parallel for
         for (unsigned int n = 0; n < group->_object_array.size(); n++) {
             auto& object = group->_object_array[n];
             auto& geometry = object->geometry();
@@ -267,6 +302,7 @@ void Renderer::construct_bvh()
     _geometry_bvh_array = std::vector<std::shared_ptr<BVH>>(num_objects);
     int total_nodes = 0;
 
+#pragma omp parallel for
     for (int object_index = 0; object_index < (int)_transformed_object_array.size(); object_index++) {
         auto& object = _transformed_object_array[object_index];
         auto& geometry = object->geometry();
@@ -561,6 +597,8 @@ void Renderer::launch_nee_kernel()
 }
 void Renderer::render_objects(int height, int width)
 {
+    // auto start = std::chrono::system_clock::now();
+
     bool geometry_updated = false;
     bool should_update_render_buffer = false;
     bool geometry_size_changed = false;
@@ -668,12 +706,25 @@ void Renderer::render_objects(int height, int width)
         _screen_width = width;
     }
 
+    // auto end = std::chrono::system_clock::now();
+    // double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    // printf("preprocessing: %lf msec\n", elapsed);
+
+    // start = std::chrono::system_clock::now();
     if (_rt_args->next_event_estimation_enabled()) {
         launch_nee_kernel();
     } else {
         launch_mcrt_kernel();
     }
+    // end = std::chrono::system_clock::now();
+    // elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    // printf("kernel: %lf msec\n", elapsed);
+
+    // start = std::chrono::system_clock::now();
     rtx_cuda_memcpy_device_to_host((void*)_cpu_render_array.data(), (void*)_gpu_render_array, _cpu_render_array.bytes());
+    // end = std::chrono::system_clock::now();
+    // elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    // printf("memcpy: %lf msec\n", elapsed);
 
     _scene->set_updated(false);
     _camera->set_updated(false);
@@ -686,6 +737,7 @@ void Renderer::render_objects(int height, int width)
     int num_rays_per_thread = _cuda_args->num_rays_per_thread();
     int num_threads_per_pixel = int(ceilf(float(num_rays_per_pixel) / float(num_rays_per_thread)));
 
+    // start = std::chrono::system_clock::now();
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             rtxRGBAPixel pixel_buffer = _cpu_render_buffer_array[y * width * 3 + x * 3];
@@ -704,6 +756,9 @@ void Renderer::render_objects(int height, int width)
             _cpu_render_buffer_array[y * width * 3 + x * 3] = pixel_buffer;
         }
     }
+    // end = std::chrono::system_clock::now();
+    // elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    // printf("reduce_sum: %lf msec\n", elapsed);
 }
 void Renderer::check_arguments()
 {

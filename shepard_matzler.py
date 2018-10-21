@@ -88,6 +88,9 @@ def generate_block_positions(num_cubes):
 
 
 def build_scene(color_array):
+    # Set GPU device
+    rtx.set_device(args.gpu_device)
+
     # Generate positions of each cube
     cube_position_array, shift = generate_block_positions(args.num_cubes)
     assert len(cube_position_array) == args.num_cubes
@@ -199,6 +202,7 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
     parser.add_argument(
         "--total-observations", "-total", type=int, default=2000000)
     parser.add_argument(

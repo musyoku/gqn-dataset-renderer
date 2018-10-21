@@ -81,6 +81,9 @@ def build_scene(color_array):
 
 
 def main():
+    # Set GPU device
+    rtx.set_device(args.gpu_device)
+
     # Initialize colors
     color_array = []
     for n in range(args.num_colors):
@@ -161,6 +164,7 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
     parser.add_argument(
         "--total-observations", "-total", type=int, default=2000000)
     parser.add_argument(
