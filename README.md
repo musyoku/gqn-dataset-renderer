@@ -9,11 +9,12 @@
     - `pip3 install opencv-python`
 - pybind11
     - `pip3 install pybind11 --user`
-- OpenMP
-- Intel CPU
 - Ubuntu
+    - tested on Ubuntu 16.04 / 17.10
 - CUDA
+    - tested on CUDA 9.1
 - NVIDIA GPU
+    - tested on GTX 1070 / 1080
 - C++14 (gcc-6)
 
 # Textures
