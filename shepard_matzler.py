@@ -3,6 +3,7 @@ import colorsys
 import math
 import random
 import time
+import cv2
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,22 +13,59 @@ import gqn
 import rtx
 
 
+def get_available_axis_and_direction(space, pos):
+    ret = []
+    # x-axis
+    for direction in (-1, 1):
+        abs_pos = (pos[0] + direction, pos[1], pos[2])
+        if space[abs_pos] == True:
+            continue
+        ret.append((0, direction))
+    # y-axis
+    for direction in (-1, 1):
+        abs_pos = (pos[0], pos[1] + direction, pos[2])
+        if space[abs_pos] == True:
+            continue
+        ret.append((1, direction))
+    # z-axis
+    for direction in (-1, 1):
+        abs_pos = (pos[0], pos[1], pos[2] + direction)
+        if space[abs_pos] == True:
+            continue
+        ret.append((2, direction))
+
+    return ret
+
+
 def generate_block_positions(num_cubes):
     assert num_cubes > 0
 
-    current_position = (0, 0, 0)
-    block_locations = [current_position]
+    current_relative_pos = (0, 0, 0)
+    block_locations = [current_relative_pos]
+    block_abs_locations = np.zeros(
+        (num_cubes * 2 - 1, num_cubes * 2 - 1, num_cubes * 2 - 1),
+        dtype=np.bool)
+    p = num_cubes - 1
+    current_absolute_pos = (p, p, p)
+    block_abs_locations[current_absolute_pos] = True
 
     for _ in range(num_cubes - 1):
-        axis = random.choice([0, 1, 2])
-        direction = random.choice([-1, 1])
+        available_axis_and_direction = get_available_axis_and_direction(
+            block_abs_locations, current_absolute_pos)
+        axis, direction = random.choice(available_axis_and_direction)
         offset = [0, 0, 0]
         offset[axis] = direction
-        new_position = (offset[0] + current_position[0],
-                        offset[1] + current_position[1],
-                        offset[2] + current_position[2])
-        block_locations.append(new_position)
-        current_position = new_position
+        new_relative_pos = (offset[0] + current_relative_pos[0],
+                            offset[1] + current_relative_pos[1],
+                            offset[2] + current_relative_pos[2])
+        block_locations.append(new_relative_pos)
+        current_relative_pos = new_relative_pos
+        current_absolute_pos = (
+            new_relative_pos[0] + p,
+            new_relative_pos[1] + p,
+            new_relative_pos[2] + p,
+        )
+        block_abs_locations[current_absolute_pos] = True
 
     position_array = []
     center_of_gravity = [0, 0, 0]
@@ -95,7 +133,6 @@ def build_scene(color_array):
 
 
 def main():
-    random.seed(0)
     # Initialize colors
     color_array = []
     for n in range(args.num_colors):
@@ -137,16 +174,12 @@ def main():
         scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
                                             args.num_views_per_scene)
 
+        camera = rtx.OrthographicCamera()
         view_radius = 3
-        camera = rtx.OrthographicCamera(
-            eye=(0, 1, 1), center=(0, 0, 0), up=(0, 1, 0))
 
-        rotation = 0
         for _ in range(args.num_views_per_scene):
             eye = np.random.normal(size=3)
             eye = tuple(view_radius * (eye / np.linalg.norm(eye)))
-
-            eye = (2 * math.cos(rotation), 2, 2 * math.sin(rotation))
             center = (0, 0, 0)
             camera.look_at(eye, center, up=(0, 1, 0))
 
@@ -155,16 +188,15 @@ def main():
             # Convert to sRGB
             image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
             image = np.uint8(image * 255)
+            image = cv2.bilateralFilter(image, 3, 25, 25)
 
             yaw = gqn.math.yaw(eye, center)
             pitch = gqn.math.pitch(eye, center)
             scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
                            math.cos(pitch), math.sin(pitch))
 
-            # plt.imshow(image, interpolation="none")
-            # plt.pause(1e-8)
-
-            rotation += math.pi / 16
+            plt.imshow(image, interpolation="none")
+            plt.pause(1e-8)
 
         dataset.add(scene_data)
 
