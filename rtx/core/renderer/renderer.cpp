@@ -10,7 +10,6 @@
 #include <chrono>
 #include <iostream>
 #include <memory>
-#include <omp.h>
 #include <vector>
 
 namespace rtx {
@@ -65,40 +64,6 @@ void Renderer::transform_objects_to_view_space()
     for (unsigned int group_index = 0; group_index < _scene->_object_group_array.size(); group_index++) {
         auto& group = _scene->_object_group_array[group_index];
         glm::mat4 view_matrix = _camera->_view_matrix * group->_model_matrix;
-        for (unsigned int n = 0; n < group->_object_array.size(); n++) {
-            auto& object = group->_object_array[n];
-            auto& geometry = object->geometry();
-            glm::mat4 transformation_matrix = view_matrix * geometry->_model_matrix;
-            auto transformed_geometry = geometry->transoform(transformation_matrix);
-            _transformed_object_array.at(n + offset) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
-        }
-        offset += group->_object_array.size();
-    }
-}
-void Renderer::transform_objects_to_view_space_parallel()
-{
-    int num_objects = _scene->_object_array.size();
-    for (auto& group : _scene->_object_group_array) {
-        num_objects += group->_object_array.size();
-    }
-    if (num_objects == 0) {
-        return;
-    }
-    _transformed_object_array = std::vector<std::shared_ptr<Object>>(num_objects);
-
-#pragma omp parallel for
-    for (unsigned int n = 0; n < _scene->_object_array.size(); n++) {
-        auto& object = _scene->_object_array[n];
-        auto& geometry = object->geometry();
-        glm::mat4 transformation_matrix = _camera->_view_matrix * geometry->_model_matrix;
-        auto transformed_geometry = geometry->transoform(transformation_matrix);
-        _transformed_object_array.at(n) = std::make_shared<Object>(transformed_geometry, object->material(), object->mapping());
-    }
-    int offset = _scene->_object_array.size();
-    for (unsigned int group_index = 0; group_index < _scene->_object_group_array.size(); group_index++) {
-        auto& group = _scene->_object_group_array[group_index];
-        glm::mat4 view_matrix = _camera->_view_matrix * group->_model_matrix;
-#pragma omp parallel for
         for (unsigned int n = 0; n < group->_object_array.size(); n++) {
             auto& object = group->_object_array[n];
             auto& geometry = object->geometry();
@@ -302,7 +267,6 @@ void Renderer::construct_bvh()
     _geometry_bvh_array = std::vector<std::shared_ptr<BVH>>(num_objects);
     int total_nodes = 0;
 
-#pragma omp parallel for
     for (int object_index = 0; object_index < (int)_transformed_object_array.size(); object_index++) {
         auto& object = _transformed_object_array[object_index];
         auto& geometry = object->geometry();
