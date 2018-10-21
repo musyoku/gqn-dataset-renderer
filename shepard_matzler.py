@@ -5,7 +5,6 @@ import random
 import time
 import cv2
 
-import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
@@ -194,9 +193,6 @@ def main():
             pitch = gqn.math.pitch(eye, center)
             scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
                            math.cos(pitch), math.sin(pitch))
-
-            plt.imshow(image, interpolation="none")
-            plt.pause(1e-8)
 
         dataset.add(scene_data)
 
