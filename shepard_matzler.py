@@ -88,9 +88,6 @@ def generate_block_positions(num_cubes):
 
 
 def build_scene(color_array):
-    # Set GPU device
-    rtx.set_device(args.gpu_device)
-
     # Generate positions of each cube
     cube_position_array, shift = generate_block_positions(args.num_cubes)
     assert len(cube_position_array) == args.num_cubes
@@ -135,6 +132,9 @@ def build_scene(color_array):
 
 
 def main():
+    # Set GPU device
+    rtx.set_device(args.gpu_device)
+    
     # Initialize colors
     color_array = []
     for n in range(args.num_colors):
@@ -155,7 +155,7 @@ def main():
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
-    cuda_args.num_rays_per_thread = 16
+    cuda_args.num_rays_per_thread = 32
 
     renderer = rtx.Renderer()
     render_buffer = np.zeros(
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-views-per-scene", "-k", type=int, default=15)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-cubes", "-cubes", type=int, default=5)
-    parser.add_argument("--num-colors", "-colors", type=int, default=20)
+    parser.add_argument("--num-colors", "-colors", type=int, default=12)
     parser.add_argument(
         "--output-directory",
         "-out",
