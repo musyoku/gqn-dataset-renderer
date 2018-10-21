@@ -148,7 +148,6 @@ def main():
     rt_args = rtx.RayTracingArguments()
     rt_args.num_rays_per_pixel = 512
     rt_args.max_bounce = 2
-    rt_args.next_event_estimation_enabled = False
     rt_args.supersampling_enabled = False
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
@@ -168,12 +167,13 @@ def main():
         num_views_per_scene=args.num_views_per_scene,
         start_file_number=args.start_file_number)
 
+    camera = rtx.OrthographicCamera()
+
     for _ in tqdm(range(args.total_observations)):
         scene = build_scene(color_array)
         scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
                                             args.num_views_per_scene)
 
-        camera = rtx.OrthographicCamera()
         view_radius = 3
 
         for _ in range(args.num_views_per_scene):
