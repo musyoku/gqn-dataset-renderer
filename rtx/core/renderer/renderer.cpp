@@ -164,10 +164,14 @@ void Renderer::serialize_light_sampling_table()
             continue;
         }
         auto& geometry = object->geometry();
-        if (geometry->type() != RTXGeometryTypeStandard) {
+        if (geometry->type() == RTXGeometryTypeStandard) {
+            num_lights++;
             continue;
         }
-        num_lights++;
+        if (geometry->type() == RTXGeometryTypeSphere) {
+            num_lights++;
+            continue;
+        }
     }
     int table_index = 0;
     _cpu_light_sampling_table = rtx::array<int>(num_lights);
@@ -178,11 +182,16 @@ void Renderer::serialize_light_sampling_table()
             continue;
         }
         auto& geometry = object->geometry();
-        if (geometry->type() != RTXGeometryTypeStandard) {
+        if (geometry->type() == RTXGeometryTypeStandard) {
+            _cpu_light_sampling_table[table_index] = object_index;
+            table_index++;
             continue;
         }
-        _cpu_light_sampling_table[table_index] = object_index;
-        table_index++;
+        if (geometry->type() == RTXGeometryTypeSphere) {
+            _cpu_light_sampling_table[table_index] = object_index;
+            table_index++;
+            continue;
+        }
     }
 }
 void Renderer::serialize_color_mappings()
@@ -322,6 +331,10 @@ void Renderer::compute_face_area_of_lights()
                 _total_light_face_area += area;
             }
         }
+        if (geometry->type() == RTXGeometryTypeSphere) {
+            SphereGeometry* sphere = static_cast<SphereGeometry*>(geometry.get());
+            _total_light_face_area += M_PI * sphere->radius() * sphere->radius();
+        }
     }
 }
 void Renderer::launch_mcrt_kernel()
@@ -346,7 +359,7 @@ void Renderer::launch_mcrt_kernel()
     }
 
     rtxMCRTKernelArguments args;
-    args.num_active_texture_units = num_active_texture_units;
+    args.num_active_texture_units = _texture_mapping_ptr_array.size();
     args.ambient_color = _scene->_ambient_color;
     args.camera_type = _camera->type();
     args.max_bounce = _rt_args->max_bounce();
@@ -475,7 +488,7 @@ void Renderer::launch_nee_kernel()
     }
 
     rtxNEEKernelArguments args;
-    args.num_active_texture_units = num_active_texture_units;
+    args.num_active_texture_units = _texture_mapping_ptr_array.size();
     args.ambient_color = _scene->_ambient_color;
     args.camera_type = _camera->type();
     args.max_bounce = _rt_args->max_bounce();

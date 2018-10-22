@@ -44,8 +44,8 @@ void rtx_print_device_properties(int device);
         int num_threads, int num_blocks, size_t shared_memory_bytes);
 
 rtx_define_cuda_mcrt_kernel_launcher_function(texture_memory)
-    rtx_define_cuda_mcrt_kernel_launcher_function(shared_memory)
-        rtx_define_cuda_mcrt_kernel_launcher_function(global_memory)
+rtx_define_cuda_mcrt_kernel_launcher_function(shared_memory)
+rtx_define_cuda_mcrt_kernel_launcher_function(global_memory)
 
 #define rtx_define_cuda_nee_kernel_launcher_function(memory_type)    \
     void rtx_cuda_launch_nee_##memory_type##_kernel(                 \
@@ -62,6 +62,6 @@ rtx_define_cuda_mcrt_kernel_launcher_function(texture_memory)
         rtxNEEKernelArguments& args,                                 \
         int num_threads, int num_blocks, size_t shared_memory_bytes);
 
-            rtx_define_cuda_nee_kernel_launcher_function(texture_memory)
-                rtx_define_cuda_nee_kernel_launcher_function(shared_memory)
-                    rtx_define_cuda_nee_kernel_launcher_function(global_memory)
+rtx_define_cuda_nee_kernel_launcher_function(texture_memory)
+rtx_define_cuda_nee_kernel_launcher_function(shared_memory)
+rtx_define_cuda_nee_kernel_launcher_function(global_memory)

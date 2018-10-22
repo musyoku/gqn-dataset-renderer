@@ -6,6 +6,7 @@ import time
 import cv2
 
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
@@ -133,11 +134,11 @@ def build_scene(color_array, wall_texture_filename_array,
     geometry = rtx.PlainGeometry(size, size)
     geometry.set_rotation((0, math.pi / 2, 0))
     geometry.set_position((-grid_size, 0, 0))
-    material = rtx.EmissiveMaterial(2, visible=False)
+    material = rtx.EmissiveMaterial(2, visible=True)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
     group.add(light)
-    group.set_rotation((-math.pi / 2.5, math.pi / 2, 0))
+    group.set_rotation((0, 0, -math.pi / 4))
     scene.add(group)
 
     # Place objects
@@ -176,6 +177,7 @@ def main():
         "textures/wall_texture_4.jpg",
         "textures/wall_texture_5.jpg",
         "textures/wall_texture_6.jpg",
+        "textures/wall_texture_7.jpg",
     ]
     floor_texture_filename_array = [
         "textures/floor_texture_1.png",
@@ -234,6 +236,10 @@ def main():
         view_radius = 3
         rotation = 0
 
+        fig = plt.figure()
+        plt.title("Rooms")
+        ims = []
+
         for _ in range(args.num_views_per_scene):
             eye = (view_radius * math.cos(rotation), -0.125,
                    view_radius * math.sin(rotation))
@@ -245,17 +251,25 @@ def main():
             # Convert to sRGB
             image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
             image = np.uint8(image * 255)
-            image = cv2.bilateralFilter(image, 3, 25, 25)
+            # image = cv2.bilateralFilter(image, 3, 25, 25)
 
             yaw = gqn.math.yaw(eye, center)
             pitch = gqn.math.pitch(eye, center)
             scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
                            math.cos(pitch), math.sin(pitch))
 
-            plt.imshow(image, interpolation="none")
+            im = plt.imshow(image, interpolation="none", animated=True)
+            ims.append([im])
+
             plt.pause(1e-8)
 
-            rotation += math.pi / 36
+            rotation += math.pi / 24
+
+        ani = animation.ArtistAnimation(
+            fig, ims, interval=1 / 24, blit=True, repeat_delay=0)
+
+        ani.save('anim.gif', writer="imagemagick")
+        exit()
 
         dataset.add(scene_data)
 

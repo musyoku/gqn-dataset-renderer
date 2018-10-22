@@ -101,7 +101,7 @@ def build_scene(color_array):
             position[1] - shift[1],
             position[2] - shift[2],
         ))
-        material = rtx.LambertMaterial(0.5)
+        material = rtx.LambertMaterial(0.3)
         mapping = rtx.SolidColorMapping(random.choice(color_array))
         cube = rtx.Object(geometry, material, mapping)
         scene.add(cube)
