@@ -7,6 +7,10 @@
 - Python 3
 - OpenCV
     - `pip3 install opencv-python`
+- Pillow
+    - `pip3 install Pillow`
+- tqdm
+    - `pip3 install tqdm`
 - pybind11
     - `pip3 install pybind11 --user`
 - Ubuntu

@@ -29,6 +29,7 @@ Renderer::Renderer()
     _gpu_serialized_uv_coordinate_array = NULL;
     _gpu_render_array = NULL;
     _total_frames = 0;
+    rtx_cuda_malloc_texture_objects();
 }
 Renderer::~Renderer()
 {
@@ -41,6 +42,7 @@ Renderer::~Renderer()
     rtx_cuda_free((void**)&_gpu_color_mapping_array);
     rtx_cuda_free((void**)&_gpu_serialized_uv_coordinate_array);
     rtx_cuda_free((void**)&_gpu_render_array);
+    rtx_cuda_free_texture_objects();
 }
 void Renderer::transform_objects_to_view_space()
 {
@@ -344,7 +346,7 @@ void Renderer::launch_mcrt_kernel()
     }
 
     rtxMCRTKernelArguments args;
-    args.num_active_texture_units = _texture_mapping_ptr_array.size();
+    args.num_active_texture_units = num_active_texture_units;
     args.ambient_color = _scene->_ambient_color;
     args.camera_type = _camera->type();
     args.max_bounce = _rt_args->max_bounce();
@@ -364,15 +366,24 @@ void Renderer::launch_mcrt_kernel()
     args.curand_seed = _total_frames;
     args.supersampling_enabled = _rt_args->supersampling_enabled();
 
+    // アライメントに気をつける
     size_t required_shared_memory_bytes = 0;
     required_shared_memory_bytes += _cpu_face_vertex_indices_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_vertex_array.alignment();
     required_shared_memory_bytes += _cpu_vertex_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_object_array.alignment();
     required_shared_memory_bytes += _cpu_object_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_material_attribute_byte_array.alignment();
     required_shared_memory_bytes += _cpu_material_attribute_byte_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_threaded_bvh_array.alignment();
     required_shared_memory_bytes += _cpu_threaded_bvh_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_threaded_bvh_node_array.alignment();
     required_shared_memory_bytes += _cpu_threaded_bvh_node_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_color_mapping_array.alignment();
     required_shared_memory_bytes += _cpu_color_mapping_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_serialized_uv_coordinate_array.alignment();
     required_shared_memory_bytes += _cpu_serialized_uv_coordinate_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % rtx_cuda_get_cudaTextureObject_t_bytes();
     required_shared_memory_bytes += rtx_cuda_get_cudaTextureObject_t_bytes() * num_active_texture_units;
 
     if (required_shared_memory_bytes <= available_shared_memory_bytes) {
@@ -392,11 +403,16 @@ void Renderer::launch_mcrt_kernel()
             required_shared_memory_bytes);
         return;
     }
+
     required_shared_memory_bytes = 0;
     required_shared_memory_bytes += _cpu_object_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_material_attribute_byte_array.alignment();
     required_shared_memory_bytes += _cpu_material_attribute_byte_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_threaded_bvh_array.alignment();
     required_shared_memory_bytes += _cpu_threaded_bvh_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_color_mapping_array.alignment();
     required_shared_memory_bytes += _cpu_color_mapping_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % rtx_cuda_get_cudaTextureObject_t_bytes();
     required_shared_memory_bytes += rtx_cuda_get_cudaTextureObject_t_bytes() * num_active_texture_units;
 
     if (required_shared_memory_bytes <= available_shared_memory_bytes) {
@@ -459,7 +475,7 @@ void Renderer::launch_nee_kernel()
     }
 
     rtxNEEKernelArguments args;
-    args.num_active_texture_units = _texture_mapping_ptr_array.size();
+    args.num_active_texture_units = num_active_texture_units;
     args.ambient_color = _scene->_ambient_color;
     args.camera_type = _camera->type();
     args.max_bounce = _rt_args->max_bounce();
@@ -481,16 +497,24 @@ void Renderer::launch_nee_kernel()
     args.curand_seed = _total_frames;
     args.supersampling_enabled = _rt_args->supersampling_enabled();
 
+    // アライメントに気をつける
     size_t required_shared_memory_bytes = 0;
     required_shared_memory_bytes += _cpu_face_vertex_indices_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_vertex_array.alignment();
     required_shared_memory_bytes += _cpu_vertex_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_object_array.alignment();
     required_shared_memory_bytes += _cpu_object_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_material_attribute_byte_array.alignment();
     required_shared_memory_bytes += _cpu_material_attribute_byte_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_threaded_bvh_array.alignment();
     required_shared_memory_bytes += _cpu_threaded_bvh_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_threaded_bvh_node_array.alignment();
     required_shared_memory_bytes += _cpu_threaded_bvh_node_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_color_mapping_array.alignment();
     required_shared_memory_bytes += _cpu_color_mapping_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_serialized_uv_coordinate_array.alignment();
     required_shared_memory_bytes += _cpu_serialized_uv_coordinate_array.bytes();
-    required_shared_memory_bytes += _cpu_light_sampling_table.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % rtx_cuda_get_cudaTextureObject_t_bytes();
     required_shared_memory_bytes += rtx_cuda_get_cudaTextureObject_t_bytes() * num_active_texture_units;
 
     if (required_shared_memory_bytes <= available_shared_memory_bytes) {
@@ -511,12 +535,16 @@ void Renderer::launch_nee_kernel()
             required_shared_memory_bytes);
         return;
     }
+
     required_shared_memory_bytes = 0;
     required_shared_memory_bytes += _cpu_object_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_material_attribute_byte_array.alignment();
     required_shared_memory_bytes += _cpu_material_attribute_byte_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_threaded_bvh_array.alignment();
     required_shared_memory_bytes += _cpu_threaded_bvh_array.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % _cpu_color_mapping_array.alignment();
     required_shared_memory_bytes += _cpu_color_mapping_array.bytes();
-    required_shared_memory_bytes += _cpu_light_sampling_table.bytes();
+    required_shared_memory_bytes += required_shared_memory_bytes % rtx_cuda_get_cudaTextureObject_t_bytes();
     required_shared_memory_bytes += rtx_cuda_get_cudaTextureObject_t_bytes() * num_active_texture_units;
 
     if (required_shared_memory_bytes <= available_shared_memory_bytes) {
@@ -633,6 +661,7 @@ void Renderer::render_objects(int height, int width)
                 rtx_cuda_memcpy_to_texture(texture_unit, 0, mapping->width(), mapping->data(), mapping->bytes());
                 rtx_cuda_bind_texture(texture_unit);
             }
+            rtx_cuda_transfer_all_texture_objects();
         }
         if (_cpu_serialized_uv_coordinate_array.size() > 0) {
             rtx_cuda_free((void**)&_gpu_serialized_uv_coordinate_array);

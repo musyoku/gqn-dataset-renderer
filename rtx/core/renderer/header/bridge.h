@@ -13,10 +13,13 @@ void rtx_cuda_memcpy_device_to_host(void* cpu_array, void* gpu_array, size_t siz
 void rtx_cuda_free(void** array);
 void rtx_cuda_device_reset();
 
+void rtx_cuda_malloc_texture_objects();
+void rtx_cuda_free_texture_objects();
 void rtx_cuda_malloc_texture(int unit_index, int width, int height);
 void rtx_cuda_free_texture(int unit_index);
 void rtx_cuda_memcpy_to_texture(int unit_index, int width_offset, int height_offset, void* data, size_t bytes);
 void rtx_cuda_bind_texture(int unit_index);
+void rtx_cuda_transfer_all_texture_objects();
 
 size_t rtx_cuda_get_available_shared_memory_bytes();
 size_t rtx_cuda_get_cudaTextureObject_t_bytes();
@@ -41,8 +44,8 @@ void rtx_print_device_properties(int device);
         int num_threads, int num_blocks, size_t shared_memory_bytes);
 
 rtx_define_cuda_mcrt_kernel_launcher_function(texture_memory)
-rtx_define_cuda_mcrt_kernel_launcher_function(shared_memory)
-rtx_define_cuda_mcrt_kernel_launcher_function(global_memory)
+    rtx_define_cuda_mcrt_kernel_launcher_function(shared_memory)
+        rtx_define_cuda_mcrt_kernel_launcher_function(global_memory)
 
 #define rtx_define_cuda_nee_kernel_launcher_function(memory_type)    \
     void rtx_cuda_launch_nee_##memory_type##_kernel(                 \
@@ -59,6 +62,6 @@ rtx_define_cuda_mcrt_kernel_launcher_function(global_memory)
         rtxNEEKernelArguments& args,                                 \
         int num_threads, int num_blocks, size_t shared_memory_bytes);
 
-rtx_define_cuda_nee_kernel_launcher_function(texture_memory)
-rtx_define_cuda_nee_kernel_launcher_function(shared_memory)
-rtx_define_cuda_nee_kernel_launcher_function(global_memory)
+            rtx_define_cuda_nee_kernel_launcher_function(texture_memory)
+                rtx_define_cuda_nee_kernel_launcher_function(shared_memory)
+                    rtx_define_cuda_nee_kernel_launcher_function(global_memory)
