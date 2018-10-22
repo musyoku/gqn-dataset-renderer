@@ -1,6 +1,6 @@
 # GQN Dataset Renderer
 
-[python-rtx](https://github.com/musyoku/python-rtx)
+This is a Python library for building a dataset for GQN and CGQN based on [realtime ray tracer](https://github.com/musyoku/python-rtx).
 
 # Requirements
 
@@ -20,6 +20,11 @@
 - NVIDIA GPU
     - tested on GTX 1070 / 1080
 - C++14 (gcc-6)
+
+# Shepard-Matzler
+
+# Rooms
+# Rooms
 
 # Textures
 
