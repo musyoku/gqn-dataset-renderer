@@ -43,7 +43,7 @@ def generate_block_positions(num_cubes):
     block_locations = [current_relative_pos]
     block_abs_locations = np.zeros(
         (num_cubes * 2 - 1, num_cubes * 2 - 1, num_cubes * 2 - 1),
-        dtype=np.bool)
+        dtype=bool)
     p = num_cubes - 1
     current_absolute_pos = (p, p, p)
     block_abs_locations[current_absolute_pos] = True
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         "--total-observations", "-total", type=int, default=2000000)
     parser.add_argument(
         "--num-observations-per-file", "-per-file", type=int, default=2000)
-    parser.add_argument("--start-file-number", type=int, default=1)
+    parser.add_argument("--start-file-number", "-start", type=int, default=1)
     parser.add_argument("--num-views-per-scene", "-k", type=int, default=15)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-cubes", "-cubes", type=int, default=5)

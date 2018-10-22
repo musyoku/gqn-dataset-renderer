@@ -23,4 +23,10 @@
 
 # Textures
 
-- [Subtle Patterns](https://www.toptal.com/designers/subtlepatterns/)
+- http://bg-patterns.com/?p=1650
+- http://bg-patterns.com/?p=1607
+- http://bg-patterns.com/?p=221
+- http://www.everydayicons.jp/patterns/japanese_circle.html
+- http://thepatternlibrary.com/#fancy-pants
+- http://thepatternlibrary.com/#the-illusionist
+- http://thepatternlibrary.com/#maze

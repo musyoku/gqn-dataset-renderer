@@ -8,23 +8,88 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
 import gqn
 import rtx
 
 
-def build_scene(color_array):
-    grid_size = 7
-    wall_height = 2
-    eps = 10
+class GeometryType:
+    box = 1
+    shpere = 2
+    cylinder = 3
+    cone = 4
+
+
+geometry_type_array = [
+    GeometryType.box,
+    GeometryType.shpere,
+    GeometryType.cylinder,
+    GeometryType.cone,
+]
+
+
+def load_texture_image(filename):
+    image = Image.open(filename)
+    image = image.convert("RGB")
+    texture = np.array(image, dtype=np.float32) / 255
+    return texture
+
+
+def build_mapping(texture, wall_aspect_ratio=1.0, scale=1.0):
+    aspect_ratio = texture.shape[1] / texture.shape[0]
+    uv_coordinates = np.array(
+        [
+            [0, 1 / scale],
+            [wall_aspect_ratio / aspect_ratio / scale, 1 / scale],
+            [0, 0],
+            [wall_aspect_ratio / aspect_ratio / scale, 0],
+        ],
+        dtype=np.float32)
+    mapping = rtx.TextureMapping(texture, uv_coordinates)
+    return mapping
+
+
+def build_geometry_by_type(geometry_type):
+    if geometry_type == GeometryType.box:
+        return rtx.BoxGeometry(width=1, height=1, depth=1)
+
+    if geometry_type == GeometryType.shpere:
+        return rtx.SphereGeometry(radius=0.5)
+
+    if geometry_type == GeometryType.cylinder:
+        return rtx.CylinderGeometry(radius=0.5, height=1)
+
+    if geometry_type == GeometryType.cone:
+        return rtx.ConeGeometry(radius=0.5, height=1)
+
+    raise NotImplementedError
+
+
+def generate_object_positions(num_objects, grid_size):
+    available_positions = []
+    for y in range(grid_size):
+        for x in range(grid_size):
+            available_positions.append((x, y))
+    ret = random.sample(available_positions, num_objects)
+    return ret
+
+
+def build_scene(color_array, wall_texture_filename_array,
+                floor_texture_filename_array):
+    grid_size = 8
+    wall_height = 3
+    eps = 0.1
     scene = rtx.Scene(ambient_color=(0.5, 1, 1))
+
+    texture = load_texture_image(random.choice(wall_texture_filename_array))
+    mapping = build_mapping(texture, grid_size / wall_height)
 
     # 1
     geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
     geometry.set_rotation((0, 0, 0))
     geometry.set_position((0, 0, -grid_size / 2))
     material = rtx.LambertMaterial(0.95)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
@@ -33,7 +98,6 @@ def build_scene(color_array):
     geometry.set_rotation((0, -math.pi / 2, 0))
     geometry.set_position((grid_size / 2, 0, 0))
     material = rtx.LambertMaterial(0.95)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
@@ -42,7 +106,6 @@ def build_scene(color_array):
     geometry.set_rotation((0, math.pi, 0))
     geometry.set_position((0, 0, grid_size / 2))
     material = rtx.LambertMaterial(0.95)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
@@ -51,7 +114,6 @@ def build_scene(color_array):
     geometry.set_rotation((0, math.pi / 2, 0))
     geometry.set_position((-grid_size / 2, 0, 0))
     material = rtx.LambertMaterial(0.95)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
@@ -60,29 +122,64 @@ def build_scene(color_array):
     geometry.set_rotation((-math.pi / 2, 0, 0))
     geometry.set_position((0, -wall_height / 2, 0))
     material = rtx.LambertMaterial(0.95)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
-    ceil = rtx.Object(geometry, material, mapping)
-    scene.add(ceil)
+    texture = load_texture_image(random.choice(floor_texture_filename_array))
+    mapping = build_mapping(texture, scale=0.5)
+    floor = rtx.Object(geometry, material, mapping)
+    scene.add(floor)
 
     # Place lights
     size = 50
     group = rtx.ObjectGroup()
     geometry = rtx.PlainGeometry(size, size)
     geometry.set_rotation((0, math.pi / 2, 0))
-    geometry.set_position((-10, 0, 0))
-    material = rtx.EmissiveMaterial(1, visible=False)
+    geometry.set_position((-grid_size, 0, 0))
+    material = rtx.EmissiveMaterial(2, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
     group.add(light)
     group.set_rotation((-math.pi / 2.5, math.pi / 2, 0))
     scene.add(group)
 
+    # Place objects
+    r = grid_size // 4
+    r2 = r * 2
+    object_positions = generate_object_positions(args.num_objects, r2 - 1)
+    for position_index in object_positions:
+        geometry_type = random.choice(geometry_type_array)
+        geometry = build_geometry_by_type(geometry_type)
+        geometry.set_rotation((0, math.pi * random.uniform(0, 1), 0))
+
+        noise = np.random.uniform(-0.125, 0.125, size=2)
+        spread = 1.5
+        geometry.set_position((
+            spread * (position_index[0] - r + 0.5) + noise[0],
+            -wall_height / 2 + 0.5,
+            spread * (position_index[1] - r + 0.5) + noise[1],
+        ))
+        material = rtx.LambertMaterial(0.6)
+        color = random.choice(color_array)
+        mapping = rtx.SolidColorMapping(color)
+        obj = rtx.Object(geometry, material, mapping)
+        scene.add(obj)
     return scene
 
 
 def main():
     # Set GPU device
     rtx.set_device(args.gpu_device)
+
+    # Texture
+    wall_texture_filename_array = [
+        "textures/wall_texture_1.png",
+        "textures/wall_texture_2.jpg",
+        "textures/wall_texture_3.jpg",
+        "textures/wall_texture_4.jpg",
+        "textures/wall_texture_5.jpg",
+        "textures/wall_texture_6.jpg",
+    ]
+    floor_texture_filename_array = [
+        "textures/floor_texture_1.png",
+    ]
 
     # Initialize colors
     color_array = []
@@ -129,7 +226,8 @@ def main():
         z_far=100)
 
     for _ in tqdm(range(args.total_observations)):
-        scene = build_scene(color_array)
+        scene = build_scene(color_array, wall_texture_filename_array,
+                            floor_texture_filename_array)
         scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
                                             args.num_views_per_scene)
 
@@ -137,8 +235,8 @@ def main():
         rotation = 0
 
         for _ in range(args.num_views_per_scene):
-            eye = (view_radius * math.cos(rotation), 0.0,
-                        view_radius * math.sin(rotation))
+            eye = (view_radius * math.cos(rotation), -0.125,
+                   view_radius * math.sin(rotation))
             center = (0, 0, 0)
             camera.look_at(eye, center, up=(0, 1, 0))
 
@@ -169,10 +267,10 @@ if __name__ == "__main__":
         "--total-observations", "-total", type=int, default=2000000)
     parser.add_argument(
         "--num-observations-per-file", "-per-file", type=int, default=2000)
-    parser.add_argument("--start-file-number", type=int, default=1)
-    parser.add_argument("--num-views-per-scene", "-k", type=int, default=15)
+    parser.add_argument("--start-file-number", "-start", type=int, default=1)
+    parser.add_argument("--num-views-per-scene", "-k", type=int, default=5)
     parser.add_argument("--image-size", type=int, default=64)
-    parser.add_argument("--num-cubes", "-cubes", type=int, default=5)
+    parser.add_argument("--num-objects", "-objects", type=int, default=3)
     parser.add_argument("--num-colors", "-colors", type=int, default=20)
     parser.add_argument(
         "--output-directory",

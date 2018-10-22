@@ -175,6 +175,7 @@
 // http://www.pbr-book.org/3ed-2018/Shapes/Other_Quadrics.html
 #define __rtx_intersect_cone_or_continue(ray, trans_a, trans_b, trans_c, inv_trans_a, inv_trans_b, inv_trans_c, unit_hit_face_normal, t, min_distance) \
     {                                                                                                                                                  \
+        const float oy = ray.origin.y + height / 2.0f;                                                                                                          \
         /* 方向ベクトルの変換では平行移動の成分を無視する */                                                                    \
         float3 d = {                                                                                                                                   \
             ray.direction.x * inv_trans_a.x + ray.direction.y * inv_trans_a.y + ray.direction.z * inv_trans_a.z,                                       \
@@ -182,9 +183,9 @@
             ray.direction.x * inv_trans_c.x + ray.direction.y * inv_trans_c.y + ray.direction.z * inv_trans_c.z,                                       \
         };                                                                                                                                             \
         float3 o = {                                                                                                                                   \
-            ray.origin.x * inv_trans_a.x + ray.origin.y * inv_trans_a.y + ray.origin.z * inv_trans_a.z + inv_trans_a.w,                                \
-            ray.origin.x * inv_trans_b.x + ray.origin.y * inv_trans_b.y + ray.origin.z * inv_trans_b.z + inv_trans_b.w,                                \
-            ray.origin.x * inv_trans_c.x + ray.origin.y * inv_trans_c.y + ray.origin.z * inv_trans_c.z + inv_trans_c.w,                                \
+            ray.origin.x * inv_trans_a.x + oy * inv_trans_a.y + ray.origin.z * inv_trans_a.z + inv_trans_a.w,                                \
+            ray.origin.x * inv_trans_b.x + oy * inv_trans_b.y + ray.origin.z * inv_trans_b.z + inv_trans_b.w,                                \
+            ray.origin.x * inv_trans_c.x + oy * inv_trans_c.y + ray.origin.z * inv_trans_c.z + inv_trans_c.w,                                \
         };                                                                                                                                             \
         const float coeff = (height * height) / (radius * radius);                                                                                     \
         const float a = coeff * (d.x * d.x + d.z * d.z) - (d.y * d.y);                                                                                 \
