@@ -168,7 +168,7 @@ def main():
                                       args.total_observations),
         image_size=(args.image_size, args.image_size),
         num_views_per_scene=args.num_views_per_scene,
-        initial_file_number=args.initial_file_number_from)
+        initial_file_number=args.initial_file_number)
 
     camera = rtx.OrthographicCamera()
 

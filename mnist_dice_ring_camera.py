@@ -317,8 +317,8 @@ def main():
             scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
                            math.cos(pitch), math.sin(pitch))
 
-            plt.imshow(image, interpolation="none")
-            plt.pause(1e-8)
+            # plt.imshow(image, interpolation="none")
+            # plt.pause(1e-8)
 
         dataset.add(scene_data)
 
