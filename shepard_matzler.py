@@ -125,7 +125,7 @@ def build_scene(color_array):
     light = rtx.Object(geometry, material, mapping)
     group.add(light)
 
-    group.set_rotation((-math.pi / 4, math.pi / 4, 0))
+    group.set_rotation((-math.pi / 3, math.pi / 4, 0))
     scene.add(group)
 
     return scene
