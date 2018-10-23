@@ -22,6 +22,8 @@ This is a Python library for building a dataset for GQN and CGQN based on [realt
     - tested on GTX 1070 / 1080
 - C++14 (gcc-6)
 
+Also, you need Chainer, PyTorch or Keras to download MNIST images.
+
 ## Installation
 
 ```
@@ -36,7 +38,6 @@ make -j4
 python3 shepard_matzler.py -cubes 5 -colors 12 -k 15
 ```
 
-
 # Rooms
 
 ![anim](https://user-images.githubusercontent.com/15250418/47347087-7e54a280-d6e9-11e8-93db-47dd2b4efaea.gif)
@@ -44,6 +45,11 @@ python3 shepard_matzler.py -cubes 5 -colors 12 -k 15
 ```
 python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5
 ```
+
+# MNIST Dice
+
+![rooms](https://user-images.githubusercontent.com/15250418/47368004-ce4c5d00-d71b-11e8-9834-bf87b128892b.gif)
+
 
 # Using multiple GPUs
 

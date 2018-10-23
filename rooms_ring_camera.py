@@ -252,13 +252,7 @@ def main():
         initial_file_number=args.initial_file_number)
 
     camera = rtx.PerspectiveCamera(
-        eye=(0, 0, 1),
-        center=(0, 0, 0),
-        up=(0, 1, 0),
-        fov_rad=math.pi / 3,
-        aspect_ratio=screen_width / screen_height,
-        z_near=0.01,
-        z_far=100)
+        fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
 
     fig = plt.figure()
 

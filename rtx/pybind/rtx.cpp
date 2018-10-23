@@ -103,8 +103,8 @@ PYBIND11_MODULE(rtx, module)
     // Cameras
     py::class_<PerspectiveCamera, Camera, std::shared_ptr<PerspectiveCamera>>(module, "PerspectiveCamera")
         .def(py::init<>())
-        .def(py::init<py::tuple, py::tuple, py::tuple, float, float, float, float>(),
-            py::arg("eye"), py::arg("center"), py::arg("up"), py::arg("fov_rad"), py::arg("aspect_ratio"), py::arg("z_near"), py::arg("z_far"))
+        .def(py::init<py::tuple, py::tuple, py::tuple, float, float>(), py::arg("eye"), py::arg("center"), py::arg("up"), py::arg("fov_rad"), py::arg("aspect_ratio"))
+        .def(py::init<float, float>(), py::arg("fov_rad"), py::arg("aspect_ratio"))
         .def_property("fov_rad", &PerspectiveCamera::fov_rad, &PerspectiveCamera::set_fov_rad)
         .def("look_at", (void (PerspectiveCamera::*)(py::tuple, py::tuple, py::tuple)) & PerspectiveCamera::look_at, py::arg("eye"), py::arg("center"), py::arg("up"));
     py::class_<OrthographicCamera, Camera, std::shared_ptr<OrthographicCamera>>(module, "OrthographicCamera")
