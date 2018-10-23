@@ -19,3 +19,6 @@
 .vscode
 build
 /examples/geometries/dragon
+gif_rooms_ring_camera.py
+gif_rooms_free_camera.py
+gif_shepared_matzler.py

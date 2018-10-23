@@ -140,10 +140,10 @@ def build_scene(color_array, wall_texture_filename_array,
 
     geometry = rtx.SphereGeometry(3)
     geometry.set_position((-grid_size / 2 - 1, 10, -grid_size / 2 - 1))
-    material = rtx.EmissiveMaterial(5, visible=True)
+    material = rtx.EmissiveMaterial(2, visible=True)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
-    # light_group.add(light)
+    light_group.add(light)
 
     light_group
     scene.add(light_group)
@@ -173,7 +173,6 @@ def build_scene(color_array, wall_texture_filename_array,
 
 
 def main():
-    random.seed(0)
     # Set GPU device
     rtx.set_device(args.gpu_device)
 

@@ -30,6 +30,10 @@ make -j4
 # Shepard-Matzler
 
 # Rooms
+
+![anim](https://user-images.githubusercontent.com/15250418/47345161-097f6980-d6e5-11e8-92bb-c910298fc706.gif)
+
+
 # Rooms
 
 # Textures
