@@ -45,6 +45,13 @@ python3 shepard_matzler.py -cubes 5 -colors 12 -k 15
 python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5
 ```
 
+# Using multiple GPUs
+
+```
+python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5 -gpu 0 --total-observations 100000 --num-observations-per-file 2000
+python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5 -gpu 1 --total-observations 100000 --num-observations-per-file 2000 --initial-file-number 51
+```
+
 # Textures
 
 - http://bg-patterns.com/?p=1607

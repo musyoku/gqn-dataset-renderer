@@ -47,7 +47,7 @@ class Archiver:
                  num_observations_per_file=2000,
                  image_size=(64, 64),
                  num_views_per_scene=5,
-                 start_file_number=1):
+                 initial_file_number=1):
         assert directory is not None
         self.images = np.zeros(
             (num_observations_per_file, num_views_per_scene) + image_size +
@@ -58,7 +58,7 @@ class Archiver:
             dtype="float32")
         self.current_num_observations = 0
         self.current_pool_index = 0
-        self.current_file_number = start_file_number
+        self.current_file_number = initial_file_number
         self.total_observations = total_observations
         self.num_observations_per_file = num_observations_per_file
         self.directory = directory
