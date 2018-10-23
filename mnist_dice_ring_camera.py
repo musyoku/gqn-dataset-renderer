@@ -287,8 +287,6 @@ def main():
     camera = rtx.PerspectiveCamera(
         fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
 
-    fig = plt.figure()
-
     for _ in tqdm(range(args.total_observations)):
         scene = build_scene(
             random.sample(mnist_image_array, 6), wall_texture_filename_array,

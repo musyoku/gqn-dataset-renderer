@@ -172,8 +172,6 @@ def main():
 
     camera = rtx.OrthographicCamera()
 
-    fig = plt.figure()
-
     for _ in tqdm(range(args.total_observations)):
         scene = build_scene(color_array)
         scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),

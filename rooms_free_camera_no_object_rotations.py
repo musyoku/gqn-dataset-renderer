@@ -253,7 +253,6 @@ def main():
     camera = rtx.PerspectiveCamera(
         fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
 
-    fig = plt.figure()
     grid_size = 8
 
     for _ in tqdm(range(args.total_observations)):
