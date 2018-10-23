@@ -129,40 +129,29 @@ def build_scene(color_array, wall_texture_filename_array,
     scene.add(floor)
 
     # Place lights
-    size = 50
-    group = rtx.ObjectGroup()
-    geometry = rtx.PlainGeometry(size, size)
-    geometry.set_rotation((0, math.pi / 2, 0))
-    geometry.set_position((-grid_size, 0, 0))
-    material = rtx.EmissiveMaterial(2, visible=True)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
-    light = rtx.Object(geometry, material, mapping)
-    group.add(light)
-    group.set_rotation((0, 0, -math.pi / 4))
-    # scene.add(group)
-
-    group = rtx.ObjectGroup()
+    light_group = rtx.ObjectGroup()
 
     geometry = rtx.SphereGeometry(5)
     geometry.set_position((grid_size / 2 - 1, 10, grid_size / 2 - 1))
-    material = rtx.EmissiveMaterial(16, visible=True)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
-    light = rtx.Object(geometry, material, mapping)
-    group.add(light)
-
-    geometry = rtx.SphereGeometry(3)
-    geometry.set_position((-grid_size / 2 - 1, 10, -grid_size / 2 - 1))
     material = rtx.EmissiveMaterial(10, visible=True)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
-    # group.add(light)
-    scene.add(group)
+    light_group.add(light)
+
+    geometry = rtx.SphereGeometry(3)
+    geometry.set_position((-grid_size / 2 - 1, 10, -grid_size / 2 - 1))
+    material = rtx.EmissiveMaterial(5, visible=True)
+    mapping = rtx.SolidColorMapping((1, 1, 1))
+    light = rtx.Object(geometry, material, mapping)
+    # light_group.add(light)
+
+    light_group
+    scene.add(light_group)
 
     # Place objects
     r = grid_size // 4
     r2 = r * 2
     object_positions = generate_object_positions(args.num_objects, r2 - 1)
-    print(object_positions)
     for position_index in object_positions:
         geometry_type = random.choice(geometry_type_array)
         geometry = build_geometry_by_type(geometry_type)
@@ -175,12 +164,7 @@ def build_scene(color_array, wall_texture_filename_array,
             -wall_height / 2 + 0.5,
             spread * (position_index[1] - r + 0.5) + noise[1],
         ))
-        print(position_index, (
-            spread * (position_index[0] - r + 0.5) + noise[0],
-            -wall_height / 2 + 0.5,
-            spread * (position_index[1] - r + 0.5) + noise[1],
-        ))
-        material = rtx.LambertMaterial(0.6)
+        material = rtx.LambertMaterial(0.9)
         color = random.choice(color_array)
         mapping = rtx.SolidColorMapping(color)
         obj = rtx.Object(geometry, material, mapping)
@@ -189,8 +173,7 @@ def build_scene(color_array, wall_texture_filename_array,
 
 
 def main():
-    random.seed(6)
-
+    random.seed(0)
     # Set GPU device
     rtx.set_device(args.gpu_device)
 

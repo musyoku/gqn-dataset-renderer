@@ -13,8 +13,7 @@
 !*.inl
 !.gitignore
 !makefile
-!faces
-!vertices
+!textures/floor_texture_1.png
 
 # ignore
 .vscode

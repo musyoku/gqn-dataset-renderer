@@ -44,10 +44,7 @@
         s.x = edge_ba.y * edge_ca.z - edge_ba.z * edge_ca.y;                         \
         s.y = edge_ba.z * edge_ca.x - edge_ba.x * edge_ca.z;                         \
         s.z = edge_ba.x * edge_ca.y - edge_ba.y * edge_ca.x;                         \
-        float norm = sqrtf(s.x * s.x + s.y * s.y + s.z * s.z);                       \
-        s.x = s.x / norm;                                                            \
-        s.y = s.y / norm;                                                            \
-        s.z = s.z / norm;                                                            \
+        __rtx_normalize_vector(s);                                                   \
         dot = s.x * ray.direction.x + s.y * ray.direction.y + s.z * ray.direction.z; \
         if (dot > 0.0f) {                                                            \
             continue;                                                                \
@@ -255,16 +252,12 @@
         } else {                                                                                                                                       \
             float norm;                                                                                                                                \
             normal.x = p_hit.x;                                                                                                                        \
-            normal.y = height / radius;                                                                                                                \
             normal.z = p_hit.z;                                                                                                                        \
             norm = sqrtf(normal.x * normal.x + normal.z * normal.z);                                                                                   \
             normal.x /= norm;                                                                                                                          \
-            normal.y = height / radius;                                                                                                                \
+            normal.y = radius / height;                                                                                                                \
             normal.z /= norm;                                                                                                                          \
-            norm = sqrtf(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);                                                             \
-            normal.x /= norm;                                                                                                                          \
-            normal.y /= norm;                                                                                                                          \
-            normal.z /= norm;                                                                                                                          \
+            __rtx_normalize_vector(normal);                                                                                                            \
         }                                                                                                                                              \
         /* face normal in view space*/                                                                                                                 \
         unit_hit_face_normal.x = normal.x * trans_a.x + normal.y * trans_a.y + normal.z * trans_a.z;                                                   \
@@ -455,19 +448,13 @@
                 -(unit_current_ray_direction.z * hit_face_normal.x - unit_current_ray_direction.x * hit_face_normal.z),                                                                       \
                 -(unit_current_ray_direction.x * hit_face_normal.y - unit_current_ray_direction.y * hit_face_normal.x),                                                                       \
             };                                                                                                                                                                                \
-            float norm = sqrtf(cross_view.x * cross_view.x + cross_view.y * cross_view.y + cross_view.z * cross_view.z);                                                                      \
-            cross_view.x /= norm;                                                                                                                                                             \
-            cross_view.y /= norm;                                                                                                                                                             \
-            cross_view.z /= norm;                                                                                                                                                             \
+            __rtx_normalize_vector(cross_view);                                                                                                                                               \
             float3 cross_ref = {                                                                                                                                                              \
                 unit_next_path_direction.y * hit_face_normal.z - unit_next_path_direction.z * hit_face_normal.y,                                                                              \
                 unit_next_path_direction.z * hit_face_normal.x - unit_next_path_direction.x * hit_face_normal.z,                                                                              \
                 unit_next_path_direction.x * hit_face_normal.y - unit_next_path_direction.y * hit_face_normal.x,                                                                              \
             };                                                                                                                                                                                \
-            norm = sqrtf(cross_ref.x * cross_ref.x + cross_ref.y * cross_ref.y + cross_ref.z * cross_ref.z);                                                                                  \
-            cross_ref.x /= norm;                                                                                                                                                              \
-            cross_ref.y /= norm;                                                                                                                                                              \
-            cross_ref.z /= norm;                                                                                                                                                              \
+            __rtx_normalize_vector(cross_ref);                                                                                                                                                \
             const float cos_phi = cross_view.x * cross_ref.x + cross_view.y * cross_ref.y + cross_view.z * cross_ref.z;                                                                       \
             const float coeff = attr.albedo * cos_ref * (a + (b * max(0.0f, cos_phi) * sin_alpha * tan_beta));                                                                                \
             brdf = coeff / M_PI;                                                                                                                                                              \
@@ -493,10 +480,7 @@
     curand_state)                                                                                                                                  \
     {                                                                                                                                              \
         float4 unit_diffuse = curand_normal4(&curand_state);                                                                                       \
-        float norm = sqrtf(unit_diffuse.x * unit_diffuse.x + unit_diffuse.y * unit_diffuse.y + unit_diffuse.z * unit_diffuse.z);                   \
-        unit_diffuse.x /= norm;                                                                                                                    \
-        unit_diffuse.y /= norm;                                                                                                                    \
-        unit_diffuse.z /= norm;                                                                                                                    \
+        __rtx_normalize_vector(unit_diffuse);                                                                                                      \
         cosine_term = unit_hit_face_normal.x * unit_diffuse.x + unit_hit_face_normal.y * unit_diffuse.y + unit_hit_face_normal.z * unit_diffuse.z; \
         if (cosine_term < 0.0f) {                                                                                                                  \
             unit_diffuse.x *= -1;                                                                                                                  \
@@ -572,36 +556,33 @@
     ret.y = o.y + t * d.y;           \
     ret.z = o.z + t * d.z;
 
-#define __rtx_generate_ray(ray, args, aspect_ratio)                                                                                          \
-    /* スーパーサンプリング */                                                                                                     \
-    float2 noise = { 0.0f, 0.0f };                                                                                                           \
-    if (args.supersampling_enabled) {                                                                                                        \
-        __xorshift_uniform(noise.x, xors_x, xors_y, xors_z, xors_w);                                                                         \
-        __xorshift_uniform(noise.y, xors_x, xors_y, xors_z, xors_w);                                                                         \
-    }                                                                                                                                        \
-    /* 方向 */                                                                                                                             \
-    ray.direction.x = 2.0f * float(target_pixel_x + noise.x) / float(args.screen_width) - 1.0f;                                              \
-    ray.direction.y = -(2.0f * float(target_pixel_y + noise.y) / float(args.screen_height) - 1.0f) / aspect_ratio;                           \
-    ray.direction.z = -args.ray_origin_z;                                                                                                    \
-    /* 始点 */                                                                                                                             \
-    if (args.camera_type == RTXCameraTypePerspective) {                                                                                      \
-        ray.origin.x = 0.0f;                                                                                                                 \
-        ray.origin.y = 0.0f;                                                                                                                 \
-        ray.origin.z = args.ray_origin_z;                                                                                                    \
-        ray.origin.w = 0.0f;                                                                                                                 \
-        /* 正規化 */                                                                                                                      \
-        const float norm = sqrtf(ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z); \
-        ray.direction.x /= norm;                                                                                                             \
-        ray.direction.y /= norm;                                                                                                             \
-        ray.direction.z /= norm;                                                                                                             \
-    } else {                                                                                                                                 \
-        ray.origin.x = ray.direction.x * args.ray_origin_z;                                                                                  \
-        ray.origin.y = ray.direction.y * args.ray_origin_z;                                                                                  \
-        ray.origin.z = args.ray_origin_z;                                                                                                    \
-        ray.origin.w = 0.0f;                                                                                                                 \
-        ray.direction.x = 0.0f;                                                                                                              \
-        ray.direction.y = 0.0f;                                                                                                              \
-        ray.direction.z = -1.0f;                                                                                                             \
+#define __rtx_generate_ray(ray, args, aspect_ratio)                                                                \
+    /* スーパーサンプリング */                                                                           \
+    float2 noise = { 0.0f, 0.0f };                                                                                 \
+    if (args.supersampling_enabled) {                                                                              \
+        __xorshift_uniform(noise.x, xors_x, xors_y, xors_z, xors_w);                                               \
+        __xorshift_uniform(noise.y, xors_x, xors_y, xors_z, xors_w);                                               \
+    }                                                                                                              \
+    /* 方向 */                                                                                                   \
+    ray.direction.x = 2.0f * float(target_pixel_x + noise.x) / float(args.screen_width) - 1.0f;                    \
+    ray.direction.y = -(2.0f * float(target_pixel_y + noise.y) / float(args.screen_height) - 1.0f) / aspect_ratio; \
+    ray.direction.z = -args.ray_origin_z;                                                                          \
+    /* 始点 */                                                                                                   \
+    if (args.camera_type == RTXCameraTypePerspective) {                                                            \
+        ray.origin.x = 0.0f;                                                                                       \
+        ray.origin.y = 0.0f;                                                                                       \
+        ray.origin.z = args.ray_origin_z;                                                                          \
+        ray.origin.w = 0.0f;                                                                                       \
+        /* 正規化 */                                                                                            \
+        __rtx_normalize_vector(ray.direction);                                                                     \
+    } else {                                                                                                       \
+        ray.origin.x = ray.direction.x * args.ray_origin_z;                                                        \
+        ray.origin.y = ray.direction.y * args.ray_origin_z;                                                        \
+        ray.origin.z = args.ray_origin_z;                                                                          \
+        ray.origin.w = 0.0f;                                                                                       \
+        ray.direction.x = 0.0f;                                                                                    \
+        ray.direction.y = 0.0f;                                                                                    \
+        ray.direction.z = -1.0f;                                                                                   \
     }
 
 #define __rtx_normalize_vector(vec)                                        \
@@ -674,4 +655,3 @@
         shadow_ray.direction.y /= light_distance;                                                                                                                                    \
         shadow_ray.direction.z /= light_distance;                                                                                                                                    \
     }
-    
