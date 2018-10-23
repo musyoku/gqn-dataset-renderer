@@ -139,12 +139,30 @@ def build_scene(color_array, wall_texture_filename_array,
     light = rtx.Object(geometry, material, mapping)
     group.add(light)
     group.set_rotation((0, 0, -math.pi / 4))
+    # scene.add(group)
+
+    group = rtx.ObjectGroup()
+
+    geometry = rtx.SphereGeometry(5)
+    geometry.set_position((grid_size / 2 - 1, 10, grid_size / 2 - 1))
+    material = rtx.EmissiveMaterial(16, visible=True)
+    mapping = rtx.SolidColorMapping((1, 1, 1))
+    light = rtx.Object(geometry, material, mapping)
+    group.add(light)
+
+    geometry = rtx.SphereGeometry(3)
+    geometry.set_position((-grid_size / 2 - 1, 10, -grid_size / 2 - 1))
+    material = rtx.EmissiveMaterial(10, visible=True)
+    mapping = rtx.SolidColorMapping((1, 1, 1))
+    light = rtx.Object(geometry, material, mapping)
+    # group.add(light)
     scene.add(group)
 
     # Place objects
     r = grid_size // 4
     r2 = r * 2
     object_positions = generate_object_positions(args.num_objects, r2 - 1)
+    print(object_positions)
     for position_index in object_positions:
         geometry_type = random.choice(geometry_type_array)
         geometry = build_geometry_by_type(geometry_type)
@@ -153,6 +171,11 @@ def build_scene(color_array, wall_texture_filename_array,
         noise = np.random.uniform(-0.125, 0.125, size=2)
         spread = 1.5
         geometry.set_position((
+            spread * (position_index[0] - r + 0.5) + noise[0],
+            -wall_height / 2 + 0.5,
+            spread * (position_index[1] - r + 0.5) + noise[1],
+        ))
+        print(position_index, (
             spread * (position_index[0] - r + 0.5) + noise[0],
             -wall_height / 2 + 0.5,
             spread * (position_index[1] - r + 0.5) + noise[1],
@@ -166,6 +189,8 @@ def build_scene(color_array, wall_texture_filename_array,
 
 
 def main():
+    random.seed(6)
+
     # Set GPU device
     rtx.set_device(args.gpu_device)
 
@@ -197,9 +222,10 @@ def main():
 
     # Setting up a raytracer
     rt_args = rtx.RayTracingArguments()
-    rt_args.num_rays_per_pixel = 2048
+    rt_args.num_rays_per_pixel = 1024
     rt_args.max_bounce = 3
     rt_args.supersampling_enabled = True
+    rt_args.next_event_estimation_enabled = True
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
@@ -251,7 +277,7 @@ def main():
             # Convert to sRGB
             image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
             image = np.uint8(image * 255)
-            # image = cv2.bilateralFilter(image, 3, 25, 25)
+            image = cv2.bilateralFilter(image, 3, 25, 25)
 
             yaw = gqn.math.yaw(eye, center)
             pitch = gqn.math.pitch(eye, center)
