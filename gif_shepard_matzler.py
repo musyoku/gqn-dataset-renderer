@@ -6,6 +6,7 @@ import time
 import cv2
 
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import numpy as np
 from tqdm import tqdm
 
@@ -161,66 +162,50 @@ def main():
     render_buffer = np.zeros(
         (screen_height, screen_width, 3), dtype=np.float32)
 
-    dataset = gqn.archiver.Archiver(
-        directory=args.output_directory,
-        total_observations=args.total_observations,
-        num_observations_per_file=min(args.num_observations_per_file,
-                                      args.total_observations),
-        image_size=(args.image_size, args.image_size),
-        num_views_per_scene=args.num_views_per_scene,
-        start_file_number=args.start_file_number)
-
     camera = rtx.OrthographicCamera()
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(3, 3))
+    ims = []
 
-    for _ in tqdm(range(args.total_observations)):
-        scene = build_scene(color_array)
-        scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
-                                            args.num_views_per_scene)
+    scene = build_scene(color_array)
+    scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
+                                        args.num_views_per_scene)
 
-        view_radius = 3
+    view_radius = 3
+    rotation = 0
 
-        for _ in range(args.num_views_per_scene):
-            eye = np.random.normal(size=3)
-            eye = tuple(view_radius * (eye / np.linalg.norm(eye)))
-            center = (0, 0, 0)
-            camera.look_at(eye, center, up=(0, 1, 0))
+    for _ in range(args.num_views_per_scene):
+        eye = (view_radius * math.cos(rotation),
+               view_radius * math.sin(math.pi / 6),
+               view_radius * math.sin(rotation))
+        center = (0, 0, 0)
+        camera.look_at(eye, center, up=(0, 1, 0))
 
-            renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
+        renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
 
-            # Convert to sRGB
-            image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
-            image = np.uint8(image * 255)
-            image = cv2.bilateralFilter(image, 3, 25, 25)
+        # Convert to sRGB
+        image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
+        image = np.uint8(image * 255)
+        image = cv2.bilateralFilter(image, 3, 25, 25)
 
-            # plt.imshow(image, interpolation="none")
-            # plt.pause(1e-8)
+        im = plt.imshow(image, interpolation="none", animated=True)
+        ims.append([im])
 
-            yaw = gqn.math.yaw(eye, center)
-            pitch = gqn.math.pitch(eye, center)
-            scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
-                           math.cos(pitch), math.sin(pitch))
+        plt.pause(1e-8)
+        rotation += math.pi / 36
 
-        dataset.add(scene_data)
+    ani = animation.ArtistAnimation(
+        fig, ims, interval=1 / 24, blit=True, repeat_delay=0)
+
+    ani.save('shepard_matzler.gif', writer="imagemagick")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
-    parser.add_argument(
-        "--total-observations", "-total", type=int, default=2000000)
-    parser.add_argument(
-        "--num-observations-per-file", "-per-file", type=int, default=2000)
-    parser.add_argument("--start-file-number", "-start", type=int, default=1)
     parser.add_argument("--num-views-per-scene", "-k", type=int, default=15)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-cubes", "-cubes", type=int, default=5)
     parser.add_argument("--num-colors", "-colors", type=int, default=12)
-    parser.add_argument(
-        "--output-directory",
-        "-out",
-        type=str,
-        default="dataset_shepard_matzler_train")
     args = parser.parse_args()
     main()

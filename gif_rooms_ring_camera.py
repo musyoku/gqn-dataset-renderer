@@ -6,6 +6,7 @@ import time
 import cv2
 
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
@@ -203,13 +204,7 @@ def main():
 
     # Texture
     wall_texture_filename_array = [
-        "textures/wall_texture_1.png",
-        "textures/wall_texture_2.jpg",
-        "textures/wall_texture_3.jpg",
-        "textures/wall_texture_4.jpg",
         "textures/wall_texture_5.jpg",
-        "textures/wall_texture_6.jpg",
-        "textures/wall_texture_7.jpg",
     ]
     floor_texture_filename_array = [
         "textures/floor_texture_1.png",
@@ -219,7 +214,7 @@ def main():
     color_array = []
     for n in range(args.num_colors):
         hue = n / (args.num_colors - 1)
-        saturation = 1
+        saturation = 0.9
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
         color_array.append((red, green, blue, 1))
@@ -242,16 +237,7 @@ def main():
     render_buffer = np.zeros(
         (screen_height, screen_width, 3), dtype=np.float32)
 
-    dataset = gqn.archiver.Archiver(
-        directory=args.output_directory,
-        total_observations=args.total_observations,
-        num_observations_per_file=min(args.num_observations_per_file,
-                                      args.total_observations),
-        image_size=(args.image_size, args.image_size),
-        num_views_per_scene=args.num_views_per_scene,
-        start_file_number=args.start_file_number)
-
-    camera = rtx.PerspectiveCamera(
+    perspective_camera = rtx.PerspectiveCamera(
         eye=(0, 0, 1),
         center=(0, 0, 0),
         up=(0, 1, 0),
@@ -259,58 +245,68 @@ def main():
         aspect_ratio=screen_width / screen_height,
         z_near=0.01,
         z_far=100)
+    orthogonal_camera = rtx.OrthographicCamera()
 
-    fig = plt.figure()
+    plt.tight_layout()
 
-    for _ in tqdm(range(args.total_observations)):
-        scene = build_scene(color_array, wall_texture_filename_array,
-                            floor_texture_filename_array)
-        scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
-                                            args.num_views_per_scene)
+    scene = build_scene(color_array, wall_texture_filename_array,
+                        floor_texture_filename_array)
+    scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
+                                        args.num_views_per_scene)
 
-        view_radius = 3
+    view_radius = 3
+    rotation = 0
 
-        for _ in range(args.num_views_per_scene):
-            rotation = random.uniform(0, math.pi * 2)
-            eye = (view_radius * math.cos(rotation), -0.125,
-                   view_radius * math.sin(rotation))
-            center = (0, 0, 0)
-            camera.look_at(eye, center, up=(0, 1, 0))
+    fig = plt.figure(figsize=(6, 3))
+    axis_perspective = fig.add_subplot(1, 2, 1)
+    axis_orthogonal = fig.add_subplot(1, 2, 2)
+    ims = []
 
-            renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
+    for _ in range(args.num_views_per_scene):
+        eye = (view_radius * math.cos(rotation), -0.125,
+               view_radius * math.sin(rotation))
+        center = (0, 0, 0)
+        perspective_camera.look_at(eye, center, up=(0, 1, 0))
 
-            # Convert to sRGB
-            image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
-            image = np.uint8(image * 255)
-            image = cv2.bilateralFilter(image, 3, 25, 25)
+        renderer.render(scene, perspective_camera, rt_args, cuda_args,
+                        render_buffer)
+        image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
+        image = np.uint8(image * 255)
+        image = cv2.bilateralFilter(image, 3, 25, 25)
+        im1 = axis_perspective.imshow(
+            image, interpolation="none", animated=True)
 
-            yaw = gqn.math.yaw(eye, center)
-            pitch = gqn.math.pitch(eye, center)
-            scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
-                           math.cos(pitch), math.sin(pitch))
+        eye = (view_radius * math.cos(rotation),
+               view_radius * math.sin(math.pi / 6),
+               view_radius * math.sin(rotation))
+        center = (0, 0, 0)
+        orthogonal_camera.look_at(eye, center, up=(0, 1, 0))
 
-            # plt.imshow(image, interpolation="none")
-            # plt.pause(1e-8)
+        renderer.render(scene, orthogonal_camera, rt_args, cuda_args,
+                        render_buffer)
+        image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
+        image = np.uint8(image * 255)
+        image = cv2.bilateralFilter(image, 3, 25, 25)
+        im2 = axis_orthogonal.imshow(
+            image, interpolation="none", animated=True)
+        ims.append([im1, im2])
 
-        dataset.add(scene_data)
+        plt.pause(1e-8)
+
+        rotation += math.pi / 36
+
+    ani = animation.ArtistAnimation(
+        fig, ims, interval=1 / 24, blit=True, repeat_delay=0)
+
+    ani.save('rooms.gif', writer="imagemagick")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
-    parser.add_argument(
-        "--total-observations", "-total", type=int, default=2000000)
-    parser.add_argument(
-        "--num-observations-per-file", "-per-file", type=int, default=2000)
-    parser.add_argument("--start-file-number", "-start", type=int, default=1)
     parser.add_argument("--num-views-per-scene", "-k", type=int, default=5)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-objects", "-objects", type=int, default=3)
-    parser.add_argument("--num-colors", "-colors", type=int, default=20)
-    parser.add_argument(
-        "--output-directory",
-        "-out",
-        type=str,
-        default="dataset_shepard_matzler_train")
+    parser.add_argument("--num-colors", "-colors", type=int, default=12)
     args = parser.parse_args()
     main()

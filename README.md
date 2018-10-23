@@ -1,3 +1,4 @@
+# :construction: Work in Progress :construction:
 # GQN Dataset Renderer
 
 This is a Python library for building a dataset for GQN and CGQN based on [realtime ray tracer](https://github.com/musyoku/python-rtx).
@@ -29,12 +30,20 @@ make -j4
 
 # Shepard-Matzler
 
+![shepard_matzler](https://user-images.githubusercontent.com/15250418/47348232-fa4fea00-d6eb-11e8-8ee2-65b29055565f.gif)
+
+```
+python3 shepard_matzler.py -cubes 5 -colors 12 -k 15
+```
+
+
 # Rooms
 
-![anim](https://user-images.githubusercontent.com/15250418/47345161-097f6980-d6e5-11e8-92bb-c910298fc706.gif)
+![anim](https://user-images.githubusercontent.com/15250418/47347087-7e54a280-d6e9-11e8-93db-47dd2b4efaea.gif)
 
-
-# Rooms
+```
+python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5
+```
 
 # Textures
 
