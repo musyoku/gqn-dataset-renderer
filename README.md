@@ -1,4 +1,3 @@
-# :construction: Work in Progress :construction:
 # GQN Dataset Renderer
 
 This is a Python library for building a dataset for GQN and CGQN based on [CUDA raytracer](https://github.com/musyoku/python-rtx).
