@@ -54,6 +54,7 @@ private:
     int _screen_height;
     int _screen_width;
     int _total_frames;
+    std::vector<int> _prev_active_texture_units;
 
     void check_arguments();
     void construct_bvh();
@@ -71,6 +72,7 @@ private:
     void render_objects(int height, int width);
     void launch_mcrt_kernel();
     void launch_nee_kernel();
+    void free_prev_textures();
 
 public:
     Renderer();

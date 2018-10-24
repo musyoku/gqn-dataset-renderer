@@ -337,6 +337,13 @@ void Renderer::compute_face_area_of_lights()
         }
     }
 }
+void Renderer::free_prev_textures()
+{
+    for (int unit_index : _prev_active_texture_units) {
+        rtx_cuda_free_texture(unit_index);
+    }
+    _prev_active_texture_units = std::vector<int>();
+}
 void Renderer::launch_mcrt_kernel()
 {
     size_t available_shared_memory_bytes = rtx_cuda_get_available_shared_memory_bytes();
@@ -633,6 +640,7 @@ void Renderer::render_objects(int height, int width)
         assert(_cpu_vertex_array.size() > 0);
         assert(_cpu_object_array.size() > 0);
         assert(_cpu_material_attribute_byte_array.size() > 0);
+        free_prev_textures();
         rtx_cuda_free((void**)&_gpu_face_vertex_indices_array);
         rtx_cuda_free((void**)&_gpu_vertex_array);
         rtx_cuda_free((void**)&_gpu_object_array);
@@ -655,6 +663,7 @@ void Renderer::render_objects(int height, int width)
                 rtx_cuda_malloc_texture(texture_unit, mapping->width(), mapping->height());
                 rtx_cuda_memcpy_to_texture(texture_unit, 0, mapping->width(), mapping->data(), mapping->bytes());
                 rtx_cuda_bind_texture(texture_unit);
+                _prev_active_texture_units.push_back(texture_unit);
             }
             rtx_cuda_transfer_all_texture_objects();
         }
