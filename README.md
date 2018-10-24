@@ -32,7 +32,7 @@ make -j4
 
 # Shepard-Matzler
 
-![shepard_matzler](https://user-images.githubusercontent.com/15250418/47378617-a23cd600-d733-11e8-9720-1cf22fd30334.gif)
+![shepard_matzler](https://user-images.githubusercontent.com/15250418/47383748-53496d80-d740-11e8-8db8-e7a25bd1ad5c.gif)
 
 ```
 python3 shepard_matzler.py -cubes 5 -colors 12 -k 15

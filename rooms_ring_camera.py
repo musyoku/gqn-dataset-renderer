@@ -298,7 +298,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-views-per-scene", "-k", type=int, default=5)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-objects", "-objects", type=int, default=3)
-    parser.add_argument("--num-colors", "-colors", type=int, default=20)
+    parser.add_argument("--num-colors", "-colors", type=int, default=12)
     parser.add_argument(
         "--output-directory",
         "-out",
