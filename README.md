@@ -50,7 +50,7 @@ python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5
 ![mnist_dice](https://user-images.githubusercontent.com/15250418/47478271-e4653500-d863-11e8-8d26-1b61cc34cc3b.gif)
 
 ```
-python3 mnist_dice_ring_camera.py -objects 3 -colors 12 -k 5
+python3 mnist_dice_ring_camera.py -k 5
 ```
 
 # Using multiple GPUs
