@@ -131,14 +131,17 @@ def build_scene(color_array, wall_texture_filename_array,
     # Place lights
 
     ## Primary light
-    primary_lights = rtx.ObjectGroup()
+    primary_light = rtx.ObjectGroup()
     geometry = rtx.SphereGeometry(2)
-    geometry.set_position((grid_size / 2 - 1, 8, grid_size / 2 - 1))
     material = rtx.EmissiveMaterial(40, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
-    primary_lights.add(light)
-    scene.add(primary_lights)
+    primary_light.add(light)
+
+    spread = grid_size / 2 - 1
+    primary_light.set_position((spread * random.uniform(-1, 1), 8,
+                                spread * random.uniform(-1, 1)))
+    scene.add(primary_light)
 
     ## Ambient light
     ambient_lights = rtx.ObjectGroup()
