@@ -76,9 +76,7 @@ def generate_object_positions(num_objects, grid_size):
 
 
 def build_scene(color_array, wall_texture_filename_array,
-                floor_texture_filename_array):
-    grid_size = 8
-    wall_height = 3
+                floor_texture_filename_array, grid_size, wall_height):
     eps = 0.1
     scene = rtx.Scene(ambient_color=(0.5, 1, 1))
 
@@ -229,6 +227,9 @@ def main():
     screen_width = args.image_size
     screen_height = args.image_size
 
+    grid_size = 8
+    wall_height = 3
+
     # Setting up a raytracer
     rt_args = rtx.RayTracingArguments()
     rt_args.num_rays_per_pixel = 1024
@@ -258,17 +259,18 @@ def main():
 
     for _ in tqdm(range(args.total_observations)):
         scene = build_scene(color_array, wall_texture_filename_array,
-                            floor_texture_filename_array)
+                            floor_texture_filename_array, grid_size,
+                            wall_height)
         scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
                                             args.num_views_per_scene)
 
-        view_radius = 3
-
         for _ in range(args.num_views_per_scene):
             rotation = random.uniform(0, math.pi * 2)
-            eye = (view_radius * math.cos(rotation), -0.125,
-                   view_radius * math.sin(rotation))
-            center = (0, -0.125, 0)
+            scale = grid_size - 5
+            eye = (random.uniform(-scale, scale), -0.125,
+                   random.uniform(-scale, scale))
+            center = (random.uniform(-scale, scale), -0.125,
+                      random.uniform(-scale, scale))
             camera.look_at(eye, center, up=(0, 1, 0))
 
             renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
