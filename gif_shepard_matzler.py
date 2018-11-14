@@ -168,8 +168,6 @@ def main():
     ims = []
 
     scene = build_scene(color_array)
-    scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
-                                        args.num_views_per_scene)
 
     view_radius = 3
     rotation = 0
