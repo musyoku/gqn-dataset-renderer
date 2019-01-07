@@ -29,12 +29,12 @@ Also, you need Chainer, PyTorch or Keras to download MNIST images.
 make -j4
 ```
 
-# Shepard-Matzler
+# Shepard-Metzler
 
-![shepard_matzler](https://user-images.githubusercontent.com/15250418/47383748-53496d80-d740-11e8-8db8-e7a25bd1ad5c.gif)
+![shepard_metzler](https://user-images.githubusercontent.com/15250418/47383748-53496d80-d740-11e8-8db8-e7a25bd1ad5c.gif)
 
 ```
-python3 shepard_matzler.py -cubes 5 -colors 12 -k 15
+python3 shepard_metzler.py -cubes 5 -colors 12 -k 15
 ```
 
 # Rooms
