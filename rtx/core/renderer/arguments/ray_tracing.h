@@ -7,6 +7,7 @@ private:
     int _max_bounce;
     bool _next_event_estimation_enabled;
     bool _supersampling_enabled;
+    float _ambient_light_intensity;
 
 public:
     RayTracingArguments();
@@ -18,5 +19,7 @@ public:
     void set_next_event_estimation_enabled(bool enabled);
     bool supersampling_enabled();
     void set_supersampling_enabled(bool enabled);
+    float ambient_light_intensity();
+    void set_ambient_light_intensity(float intensity);
 };
 }

@@ -11,11 +11,10 @@
 !*.cpp
 !*.md
 !*.inl
+!*.tga
 !.gitignore
 !makefile
-!textures/floor_texture_1.png
 
 # ignore
 .vscode
 build
-/examples/geometries/dragon

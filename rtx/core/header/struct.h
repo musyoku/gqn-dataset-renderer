@@ -102,6 +102,7 @@ typedef struct rtxMCRTKernelArguments {
     int screen_height;
     RTXCameraType camera_type;
     rtxRGBAColor ambient_color;
+    float ambient_light_intensity;
     int face_vertex_index_array_size;
     int vertex_array_size;
     int object_array_size;
@@ -124,6 +125,7 @@ typedef struct rtxNEEKernelArguments {
     int screen_height;
     RTXCameraType camera_type;
     rtxRGBAColor ambient_color;
+    float ambient_light_intensity;
     int face_vertex_index_array_size;
     int vertex_array_size;
     int object_array_size;

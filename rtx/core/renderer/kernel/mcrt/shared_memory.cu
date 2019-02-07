@@ -356,6 +356,12 @@ __global__ void mcrt_shared_memory_kernel(
                     pixel.b += hit_color.b * path_weight.b * attr.intensity;
                 }
                 break;
+            } else {
+                if (bounce == 0) {
+                    pixel.r += hit_color.r * args.ambient_light_intensity;
+                    pixel.g += hit_color.g * args.ambient_light_intensity;
+                    pixel.b += hit_color.b * args.ambient_light_intensity;
+                }
             }
 
             // 反射方向のサンプリング

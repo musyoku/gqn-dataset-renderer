@@ -92,7 +92,7 @@ def build_scene(color_array):
     cube_position_array, shift = generate_block_positions(args.num_cubes)
     assert len(cube_position_array) == args.num_cubes
 
-    # Place block
+    # Place cubes
     scene = rtx.Scene(ambient_color=(0, 0, 0))
     for position in cube_position_array:
         geometry = rtx.BoxGeometry(1, 1, 1)
@@ -106,27 +106,18 @@ def build_scene(color_array):
         cube = rtx.Object(geometry, material, mapping)
         scene.add(cube)
 
-    # Place lights
+    # Place a light
     size = 50
-    group = rtx.ObjectGroup()
+    wrapper = rtx.ObjectGroup()
     geometry = rtx.PlainGeometry(size, size)
     geometry.set_rotation((0, math.pi / 2, 0))
     geometry.set_position((-10, 0, 0))
     material = rtx.EmissiveMaterial(10, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
-    group.add(light)
-
-    geometry = rtx.PlainGeometry(size, size)
-    geometry.set_rotation((0, -math.pi / 2, 0))
-    geometry.set_position((10, 0, 0))
-    material = rtx.EmissiveMaterial(1, visible=False)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
-    light = rtx.Object(geometry, material, mapping)
-    group.add(light)
-
-    group.set_rotation((-math.pi / 3, math.pi / 4, 0))
-    scene.add(group)
+    wrapper.add(light)
+    wrapper.set_rotation((-math.pi / 3, math.pi / 4, 0))
+    scene.add(wrapper)
 
     return scene
 
@@ -152,6 +143,7 @@ def main():
     rt_args.num_rays_per_pixel = 512
     rt_args.max_bounce = 2
     rt_args.supersampling_enabled = False
+    rt_args.ambient_light_intensity = 0.05
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
@@ -177,7 +169,7 @@ def main():
         scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
                                             args.num_views_per_scene)
 
-        view_radius = 3
+        view_radius = 3.3
 
         for _ in range(args.num_views_per_scene):
             eye = np.random.normal(size=3)

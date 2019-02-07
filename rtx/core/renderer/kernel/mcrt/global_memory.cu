@@ -92,7 +92,7 @@ __global__ void mcrt_global_memory_kernel(
         // レイの生成
         rtxCUDARay ray;
         __rtx_generate_ray(ray, args, aspect_ratio);
-        
+
         // BVHのAABBとの衝突判定で使う
         float3 ray_direction_inv = {
             1.0f / ray.direction.x,
@@ -296,7 +296,7 @@ __global__ void mcrt_global_memory_kernel(
             }
 
             if (did_hit_object == false) {
-                if (bounce == 0){
+                if (bounce == 0) {
                     pixel.r += args.ambient_color.r;
                     pixel.g += args.ambient_color.g;
                     pixel.b += args.ambient_color.b;
@@ -332,6 +332,12 @@ __global__ void mcrt_global_memory_kernel(
                     pixel.b += hit_color.b * path_weight.b * attr.intensity;
                 }
                 break;
+            } else {
+                if (bounce == 0) {
+                    pixel.r += hit_color.r * args.ambient_light_intensity;
+                    pixel.g += hit_color.g * args.ambient_light_intensity;
+                    pixel.b += hit_color.b * args.ambient_light_intensity;
+                }
             }
 
             // 反射方向のサンプリング

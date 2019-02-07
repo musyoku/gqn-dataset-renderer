@@ -138,7 +138,8 @@ def build_scene(mnist_image_array,
     texture = load_texture_image(random.choice(wall_texture_filename_array))
     mapping = build_mapping(texture, grid_size / wall_height)
 
-    # 1
+    # Place walls
+    ## 1
     geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
     geometry.set_rotation((0, 0, 0))
     geometry.set_position((0, 0, -grid_size / 2))
@@ -146,7 +147,7 @@ def build_scene(mnist_image_array,
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
-    # 2
+    ## 2
     geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
     geometry.set_rotation((0, -math.pi / 2, 0))
     geometry.set_position((grid_size / 2, 0, 0))
@@ -154,7 +155,7 @@ def build_scene(mnist_image_array,
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
-    # 3
+    ## 3
     geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
     geometry.set_rotation((0, math.pi, 0))
     geometry.set_position((0, 0, grid_size / 2))
@@ -162,7 +163,7 @@ def build_scene(mnist_image_array,
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
-    # 4
+    ## 4
     geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
     geometry.set_rotation((0, math.pi / 2, 0))
     geometry.set_position((-grid_size / 2, 0, 0))
@@ -180,53 +181,15 @@ def build_scene(mnist_image_array,
     floor = rtx.Object(geometry, material, mapping)
     scene.add(floor)
 
-    # Place lights
-    ## Primary light
-    primary_light = rtx.ObjectGroup()
+    # Place a light
     geometry = rtx.SphereGeometry(2)
-    material = rtx.EmissiveMaterial(40, visible=False)
+    spread = grid_size / 2 - 1
+    geometry.set_position((spread * random.uniform(-1, 1), 8,
+                           spread * random.uniform(-1, 1)))
+    material = rtx.EmissiveMaterial(20, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
-    primary_light.add(light)
-
-    spread = grid_size / 2 - 1
-    primary_light.set_position((spread * random.uniform(-1, 1), 8,
-                                spread * random.uniform(-1, 1)))
-    scene.add(primary_light)
-
-    ## Ambient light
-    ambient_lights = rtx.ObjectGroup()
-
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, 0, 0))
-    geometry.set_position((0, 0, -grid_size / 2))
-    material = rtx.EmissiveMaterial(1, visible=False)
-    wall = rtx.Object(geometry, material, mapping)
-    ambient_lights.add(wall)
-
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, -math.pi / 2, 0))
-    geometry.set_position((grid_size / 2, 0, 0))
-    material = rtx.EmissiveMaterial(1, visible=False)
-    wall = rtx.Object(geometry, material, mapping)
-    ambient_lights.add(wall)
-
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, math.pi, 0))
-    geometry.set_position((0, 0, grid_size / 2))
-    material = rtx.EmissiveMaterial(1, visible=False)
-    wall = rtx.Object(geometry, material, mapping)
-    ambient_lights.add(wall)
-
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, math.pi / 2, 0))
-    geometry.set_position((-grid_size / 2, 0, 0))
-    material = rtx.EmissiveMaterial(1, visible=False)
-    wall = rtx.Object(geometry, material, mapping)
-    ambient_lights.add(wall)
-
-    ambient_lights.set_position((0, wall_height, 0))
-    scene.add(ambient_lights)
+    scene.add(light)
 
     # Place a dice
     dice = build_dice(mnist_image_array)
@@ -245,16 +208,16 @@ def main():
 
     # Texture
     wall_texture_filename_array = [
-        "textures/wall_texture_1.png",
-        "textures/wall_texture_2.jpg",
-        "textures/wall_texture_3.jpg",
-        "textures/wall_texture_4.jpg",
-        "textures/wall_texture_5.jpg",
-        "textures/wall_texture_6.jpg",
-        "textures/wall_texture_7.jpg",
+        "textures/lg_style_01_wall_cerise_d.tga",
+        "textures/lg_style_01_wall_green_bright_d.tga",
+        "textures/lg_style_01_wall_red_bright_d.tga",
+        "textures/lg_style_02_wall_yellow_d.tga",
+        "textures/lg_style_03_wall_orange_bright_d.tga",
     ]
     floor_texture_filename_array = [
-        "textures/floor_texture_1.png",
+        "textures/lg_floor_d.tga",
+        "textures/lg_style_01_floor_blue_d.tga",
+        "textures/lg_style_01_floor_orange_bright_d.tga",
     ]
 
     # Load MNIST images
@@ -269,10 +232,11 @@ def main():
     rt_args.max_bounce = 3
     rt_args.supersampling_enabled = True
     rt_args.next_event_estimation_enabled = True
+    rt_args.ambient_light_intensity = 0.2
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
-    cuda_args.num_rays_per_thread = 16
+    cuda_args.num_rays_per_thread = 32
 
     renderer = rtx.Renderer()
     render_buffer = np.zeros(

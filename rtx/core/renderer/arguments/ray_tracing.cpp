@@ -7,6 +7,7 @@ RayTracingArguments::RayTracingArguments()
     _max_bounce = 0;
     _next_event_estimation_enabled = false;
     _supersampling_enabled = true;
+    _ambient_light_intensity = 0;
 }
 int RayTracingArguments::num_rays_per_pixel()
 {
@@ -39,6 +40,14 @@ bool RayTracingArguments::supersampling_enabled()
 }
 void RayTracingArguments::set_supersampling_enabled(bool enabled)
 {
-    _supersampling_enabled = enabled; 
+    _supersampling_enabled = enabled;
+}
+float RayTracingArguments::ambient_light_intensity()
+{
+    return _ambient_light_intensity;
+}
+void RayTracingArguments::set_ambient_light_intensity(float intensity)
+{
+    _ambient_light_intensity = intensity;
 }
 }

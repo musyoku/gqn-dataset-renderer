@@ -94,6 +94,7 @@ PYBIND11_MODULE(rtx, module)
         .def_property("num_rays_per_pixel", &RayTracingArguments::num_rays_per_pixel, &RayTracingArguments::set_num_rays_per_pixel)
         .def_property("next_event_estimation_enabled", &RayTracingArguments::next_event_estimation_enabled, &RayTracingArguments::set_next_event_estimation_enabled)
         .def_property("supersampling_enabled", &RayTracingArguments::supersampling_enabled, &RayTracingArguments::set_supersampling_enabled)
+        .def_property("ambient_light_intensity", &RayTracingArguments::ambient_light_intensity, &RayTracingArguments::set_ambient_light_intensity)
         .def_property("max_bounce", &RayTracingArguments::max_bounce, &RayTracingArguments::set_max_bounce);
     py::class_<CUDAKernelLaunchArguments, std::shared_ptr<CUDAKernelLaunchArguments>>(module, "CUDAKernelLaunchArguments")
         .def(py::init<>())

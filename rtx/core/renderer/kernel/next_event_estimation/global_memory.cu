@@ -389,6 +389,12 @@ __global__ void nee_global_memory_kernel(
                         pixel.b += args.ambient_color.b;
                     }
                     break;
+                } else {
+                    if (iter == 0) {
+                        pixel.r += hit_object_color.r * args.ambient_light_intensity;
+                        pixel.g += hit_object_color.g * args.ambient_light_intensity;
+                        pixel.b += hit_object_color.b * args.ambient_light_intensity;
+                    }
                 }
 
                 // 反射方向のサンプリング

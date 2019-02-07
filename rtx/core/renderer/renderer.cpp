@@ -385,6 +385,7 @@ void Renderer::launch_mcrt_kernel()
     args.uv_coordinate_array_size = _cpu_serialized_uv_coordinate_array.size();
     args.curand_seed = _total_frames;
     args.supersampling_enabled = _rt_args->supersampling_enabled();
+    args.ambient_light_intensity = _rt_args->ambient_light_intensity();
 
     // アライメントに気をつける
     size_t required_shared_memory_bytes = 0;
@@ -506,6 +507,7 @@ void Renderer::launch_nee_kernel()
     args.total_light_face_area = _total_light_face_area;
     args.curand_seed = _total_frames;
     args.supersampling_enabled = _rt_args->supersampling_enabled();
+    args.ambient_light_intensity = _rt_args->ambient_light_intensity();
 
     // アライメントに気をつける
     size_t required_shared_memory_bytes = 0;

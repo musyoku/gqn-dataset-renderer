@@ -31,7 +31,7 @@ make -j4
 
 # Shepard-Metzler
 
-![shepard_metzler](https://user-images.githubusercontent.com/15250418/47383748-53496d80-d740-11e8-8db8-e7a25bd1ad5c.gif)
+![shepard_matzler](https://user-images.githubusercontent.com/15250418/52396888-bd6efe00-2af6-11e9-80ef-fa3a5e2058c8.gif)
 
 ```
 python3 shepard_metzler.py -cubes 5 -colors 12 -k 15
@@ -39,18 +39,18 @@ python3 shepard_metzler.py -cubes 5 -colors 12 -k 15
 
 # Rooms
 
-![anim](https://user-images.githubusercontent.com/15250418/47347087-7e54a280-d6e9-11e8-93db-47dd2b4efaea.gif)
+![rooms](https://user-images.githubusercontent.com/15250418/52396887-bd6efe00-2af6-11e9-9a41-30754ff11193.gif)
 
 ```
-python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5
+python3 rooms_ring_camera.py -objects 3 -colors 12 -k 10
 ```
 
 # MNIST Dice
 
-![mnist_dice](https://user-images.githubusercontent.com/15250418/47478271-e4653500-d863-11e8-8d26-1b61cc34cc3b.gif)
+![mnist_dice](https://user-images.githubusercontent.com/15250418/52396885-bcd66780-2af6-11e9-9308-bddec1e9b281.gif)
 
 ```
-python3 mnist_dice_ring_camera.py -k 5
+python3 mnist_dice_ring_camera.py -k 10
 ```
 
 # Using multiple GPUs
@@ -62,9 +62,4 @@ python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5 -gpu 1 --total-observati
 
 # Textures
 
-- http://bg-patterns.com/?p=1607
-- http://bg-patterns.com/?p=221
-- http://www.everydayicons.jp/patterns/japanese_circle.html
-- http://thepatternlibrary.com/#fancy-pants
-- http://thepatternlibrary.com/#the-illusionist
-- http://thepatternlibrary.com/#maze
+- https://github.com/deepmind/lab/tree/master/assets/textures/map/lab_games
