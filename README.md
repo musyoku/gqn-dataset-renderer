@@ -31,7 +31,7 @@ make -j4
 
 # Shepard-Metzler
 
-![shepard_matzler](https://user-images.githubusercontent.com/15250418/52396888-bd6efe00-2af6-11e9-80ef-fa3a5e2058c8.gif)
+![shepard_matzler](https://user-images.githubusercontent.com/15250418/52397603-746c7900-2af9-11e9-97b3-3a823799eaa6.gif)
 
 ```
 python3 shepard_metzler.py -cubes 5 -colors 12 -k 15
@@ -39,7 +39,7 @@ python3 shepard_metzler.py -cubes 5 -colors 12 -k 15
 
 # Rooms
 
-![rooms](https://user-images.githubusercontent.com/15250418/52396887-bd6efe00-2af6-11e9-9a41-30754ff11193.gif)
+![rooms](https://user-images.githubusercontent.com/15250418/52397602-746c7900-2af9-11e9-8ea0-a7985a8bd05e.gif)
 
 ```
 python3 rooms_ring_camera.py -objects 3 -colors 12 -k 10
@@ -47,7 +47,7 @@ python3 rooms_ring_camera.py -objects 3 -colors 12 -k 10
 
 # MNIST Dice
 
-![mnist_dice](https://user-images.githubusercontent.com/15250418/52396885-bcd66780-2af6-11e9-9308-bddec1e9b281.gif)
+![mnist_dice](https://user-images.githubusercontent.com/15250418/52397600-746c7900-2af9-11e9-9aa7-1088341e0f16.gif)
 
 ```
 python3 mnist_dice_ring_camera.py -k 10

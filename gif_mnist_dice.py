@@ -132,8 +132,8 @@ def build_scene(mnist_image_array,
                 grid_size=8):
     assert len(mnist_image_array) == 6
 
-    wall_height = 3
-    eps = 0.1
+    wall_height = grid_size / 3
+    eps = 0.0
     scene = rtx.Scene(ambient_color=(0.5, 1, 1))
 
     texture = load_texture_image(random.choice(wall_texture_filename_array))

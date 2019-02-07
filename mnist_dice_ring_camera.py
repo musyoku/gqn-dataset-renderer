@@ -131,8 +131,7 @@ def build_scene(mnist_image_array,
                 grid_size=8):
     assert len(mnist_image_array) == 6
 
-    wall_height = 3
-    eps = 0.1
+    wall_height = grid_size / 3
     scene = rtx.Scene(ambient_color=(0.5, 1, 1))
 
     texture = load_texture_image(random.choice(wall_texture_filename_array))
@@ -140,7 +139,7 @@ def build_scene(mnist_image_array,
 
     # Place walls
     ## 1
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
+    geometry = rtx.PlainGeometry(grid_size, wall_height)
     geometry.set_rotation((0, 0, 0))
     geometry.set_position((0, 0, -grid_size / 2))
     material = rtx.LambertMaterial(0.95)
@@ -148,7 +147,7 @@ def build_scene(mnist_image_array,
     scene.add(wall)
 
     ## 2
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
+    geometry = rtx.PlainGeometry(grid_size, wall_height)
     geometry.set_rotation((0, -math.pi / 2, 0))
     geometry.set_position((grid_size / 2, 0, 0))
     material = rtx.LambertMaterial(0.95)
@@ -156,7 +155,7 @@ def build_scene(mnist_image_array,
     scene.add(wall)
 
     ## 3
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
+    geometry = rtx.PlainGeometry(grid_size, wall_height)
     geometry.set_rotation((0, math.pi, 0))
     geometry.set_position((0, 0, grid_size / 2))
     material = rtx.LambertMaterial(0.95)
@@ -164,7 +163,7 @@ def build_scene(mnist_image_array,
     scene.add(wall)
 
     ## 4
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
+    geometry = rtx.PlainGeometry(grid_size, wall_height)
     geometry.set_rotation((0, math.pi / 2, 0))
     geometry.set_position((-grid_size / 2, 0, 0))
     material = rtx.LambertMaterial(0.95)
@@ -172,7 +171,7 @@ def build_scene(mnist_image_array,
     scene.add(wall)
 
     # floor
-    geometry = rtx.PlainGeometry(grid_size + eps, grid_size + eps)
+    geometry = rtx.PlainGeometry(grid_size, grid_size)
     geometry.set_rotation((-math.pi / 2, 0, 0))
     geometry.set_position((0, -wall_height / 2, 0))
     material = rtx.LambertMaterial(0.95)
@@ -236,7 +235,7 @@ def main():
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
-    cuda_args.num_rays_per_thread = 32
+    cuda_args.num_rays_per_thread = 16
 
     renderer = rtx.Renderer()
     render_buffer = np.zeros(

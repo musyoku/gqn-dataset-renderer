@@ -79,8 +79,8 @@ def generate_object_positions(num_objects, grid_size):
 def build_scene(color_array, wall_texture_filename_array,
                 floor_texture_filename_array):
     grid_size = 8
-    wall_height = 3
-    eps = 0.1
+    wall_height = grid_size / 3
+    eps = 0.0
     scene = rtx.Scene(ambient_color=(0.5, 1, 1))
 
     texture = load_texture_image(random.choice(wall_texture_filename_array))
@@ -185,7 +185,7 @@ def main():
     color_array = []
     for n in range(args.num_colors):
         hue = n / (args.num_colors - 1)
-        saturation = 0.9
+        saturation = 1
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
         color_array.append((red, green, blue, 1))
