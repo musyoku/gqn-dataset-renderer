@@ -146,16 +146,19 @@ def update_block_position(cube_nodes, color_candidates):
 
     for position, node in zip(cube_position_array, cube_nodes):
         color = np.array(random.choice(color_candidates))
-        vertex_colors = np.broadcast_to(color,
-                                        node.mesh.primitives[0].positions.shape)
+        vertex_colors = np.broadcast_to(
+            color, node.mesh.primitives[0].positions.shape)
         node.mesh.primitives[0].color_0 = vertex_colors
-        node.mesh.primitives[0].update_vertex_buffer_data()
         node.translation = np.array(([
             position[0] - center_of_gravity[0],
             position[1] - center_of_gravity[1],
             position[2] - center_of_gravity[2],
         ]))
 
+
+def udpate_vertex_buffer(cube_nodes):
+    for node in (cube_nodes):
+        node.mesh.primitives[0].update_vertex_buffer_data()
 
 
 def generate_quaternion(yaw=None, pitch=None):
@@ -253,28 +256,35 @@ def main():
     # exit()
 
     start_time = time.time()
-    for k in range(1000):
-        # Generate random point on a sphere
-        camera_position = np.random.normal(size=3)
-        camera_position = camera_distance * camera_position / np.linalg.norm(
-            camera_position)
-        # Compute yaw and pitch
-        yaw, pitch = compute_yaw_and_pitch(camera_position, camera_distance)
+    for k in range(10):
 
-        camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
-        camera_node.translation = camera_position
+        for observation_index in range(15):
 
-        # Rendering
-        image = renderer.render(
-            scene,
-            flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
-                   | RenderFlags.ALL_SOLID))[0]
-        plt.clf()
-        plt.imshow(image)
-        plt.pause(0.1)
+            # Generate random point on a sphere
+            camera_position = np.random.normal(size=3)
+            camera_position = camera_distance * camera_position / np.linalg.norm(
+                camera_position)
+            # Compute yaw and pitch
+            yaw, pitch = compute_yaw_and_pitch(camera_position, camera_distance)
 
+            camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
+            camera_node.translation = camera_position
+
+            # Rendering
+            image = renderer.render(
+                scene,
+                flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
+                    | RenderFlags.ALL_SOLID))[0]
+            plt.clf()
+            plt.imshow(image)
+            plt.pause(0.1)
+
+        # Change cube color and position
         update_block_position(cube_nodes, color_candidates)
-        
+
+        # Transfer changes to the vertex buffer on gpu
+        udpate_vertex_buffer(cube_nodes)
+
     print(1000 / (time.time() - start_time))
     renderer.delete()
 
