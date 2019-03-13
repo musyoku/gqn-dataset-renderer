@@ -316,6 +316,54 @@ class Primitive(object):
         """
         return self._compute_transparency()
 
+    def update_vertex_buffer_data(self):
+        if self._vaid is None:
+            raise ValueError('Cannot bind a Mesh that has not been added '
+                             'to a context')
+        glBindVertexArray(self._vaid)
+        glBindBuffer(GL_ARRAY_BUFFER, self._vertexbuffer)
+
+        # positions
+        vertex_data = self.positions
+        attr_sizes = [3]
+
+        # Normals
+        if self.normals is not None:
+            vertex_data = np.hstack((vertex_data, self.normals))
+            attr_sizes.append(3)
+
+        # Tangents
+        if self.tangents is not None:
+            vertex_data = np.hstack((vertex_data, self.tangents))
+            attr_sizes.append(4)
+
+        # Texture Coordinates
+        if self.texcoord_0 is not None:
+            vertex_data = np.hstack((vertex_data, self.texcoord_0))
+            attr_sizes.append(2)
+        if self.texcoord_1 is not None:
+            vertex_data = np.hstack((vertex_data, self.texcoord_1))
+            attr_sizes.append(2)
+
+        # Color
+        if self.color_0 is not None:
+            vertex_data = np.hstack((vertex_data, self.color_0))
+            attr_sizes.append(4)
+
+        # TODO JOINTS AND WEIGHTS
+        # PASS
+
+        # Copy data to buffer
+        vertex_data = np.ascontiguousarray(
+            vertex_data.flatten().astype(np.float32)
+        )
+        glBufferData(
+            GL_ARRAY_BUFFER, FLOAT_SZ * len(vertex_data),
+            vertex_data, GL_STATIC_DRAW
+        )
+
+        glBindVertexArray(0)
+
     def _add_to_context(self):
         if self._vaid is not None:
             raise ValueError('Mesh is already bound to a context')
@@ -330,6 +378,7 @@ class Primitive(object):
 
         # Generate and bind vertex buffer
         vertexbuffer = glGenBuffers(1)
+        self._vertexbuffer = vertexbuffer
         self._buffers.append(vertexbuffer)
         glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer)
 

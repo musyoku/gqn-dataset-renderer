@@ -699,7 +699,6 @@ class Renderer(object):
     ###########################################################################
 
     def _update_context(self, scene, flags):
-
         # Update meshes
         scene_meshes = scene.meshes
 

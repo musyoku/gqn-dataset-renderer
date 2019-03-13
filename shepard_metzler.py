@@ -95,7 +95,7 @@ def generate_block_positions(num_cubes):
     return position_array, center_of_gravity
 
 
-def build_scene(color_array):
+def build_scene(color_candidates):
     # Generate positions of each cube
     cube_position_array, center_of_gravity = generate_block_positions(
         args.num_cubes)
@@ -105,9 +105,10 @@ def build_scene(color_array):
     scene = Scene(
         bg_color=np.array([0.0, 0.0, 0.0]),
         ambient_light=np.array([0.3, 0.3, 0.3, 1.0]))
+    cube_nodes = []
     for position in cube_position_array:
         boxv_trimesh = trimesh.creation.box(extents=np.ones(3))
-        color = np.array(random.choice(color_array))
+        color = np.array(random.choice(color_candidates))
         vertex_colors = np.broadcast_to(color, boxv_trimesh.vertices.shape)
         boxv_trimesh.visual.vertex_colors = vertex_colors
         boxv_mesh = Mesh.from_trimesh(boxv_trimesh, smooth=False)
@@ -120,6 +121,7 @@ def build_scene(color_array):
                 position[2] - center_of_gravity[2],
             ])))
         scene.add_node(node)
+        cube_nodes.append(node)
 
     # Place a light
     light = DirectionalLight(color=np.ones(3), intensity=20.0)
@@ -131,7 +133,29 @@ def build_scene(color_array):
         light=light, rotation=quaternion, translation=np.array([1, 1, 1]))
     scene.add_node(node)
 
-    return scene
+    return scene, cube_nodes
+
+
+def update_block_position(cube_nodes, color_candidates):
+    assert len(cube_nodes) == args.num_cubes
+
+    # Generate positions of each cube
+    cube_position_array, center_of_gravity = generate_block_positions(
+        args.num_cubes)
+    assert len(cube_position_array) == args.num_cubes
+
+    for position, node in zip(cube_position_array, cube_nodes):
+        color = np.array(random.choice(color_candidates))
+        vertex_colors = np.broadcast_to(color,
+                                        node.mesh.primitives[0].positions.shape)
+        node.mesh.primitives[0].color_0 = vertex_colors
+        node.mesh.primitives[0].update_vertex_buffer_data()
+        node.translation = np.array(([
+            position[0] - center_of_gravity[0],
+            position[1] - center_of_gravity[1],
+            position[2] - center_of_gravity[2],
+        ]))
+
 
 
 def generate_quaternion(yaw=None, pitch=None):
@@ -161,17 +185,37 @@ def multiply_quaternion(A, B):
     return np.array([W[0], W[1], W[2], a * b - U @ V])
 
 
+def compute_yaw_and_pitch(position, distance):
+    x, y, z = position
+    if z < 0:
+        yaw = math.pi + math.atan(x / z)
+    elif x < 0:
+        yaw = math.pi * 2 + math.atan(x / z)
+    else:
+        yaw = math.atan(x / z)
+    pitch = -math.asin(y / distance)
+    return yaw, pitch
+
+
+def genearte_camera_quaternion(yaw, pitch):
+    quaternion_yaw = generate_quaternion(yaw=yaw)
+    quaternion_pitch = generate_quaternion(pitch=pitch)
+    quaternion = multiply_quaternion(quaternion_pitch, quaternion_yaw)
+    quaternion = quaternion / np.linalg.norm(quaternion)
+    return quaternion
+
+
 def main():
     # Initialize colors
-    color_array = []
+    color_candidates = []
     for n in range(args.num_colors):
         hue = n / args.num_colors
         saturation = 1
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
-        color_array.append((red, green, blue))
+        color_candidates.append((red, green, blue))
 
-    scene = build_scene(color_array)
+    scene, cube_nodes = build_scene(color_candidates)
     camera = OrthographicCamera(xmag=3.5, ymag=3.5)
     camera_node = Node(camera=camera)
     scene.add_node(camera_node)
@@ -196,7 +240,6 @@ def main():
     #     plt.pause(1e-10)
     # renderer.delete()
 
-
     # for k in range(1000):
     #     x = math.sin(math.pi * 2 * k / 1000)
     #     z = math.cos(math.pi * 2 * k / 1000)
@@ -209,38 +252,30 @@ def main():
     #     print(x, z, yaw)
     # exit()
 
+    start_time = time.time()
     for k in range(1000):
+        # Generate random point on a sphere
         camera_position = np.random.normal(size=3)
         camera_position = camera_distance * camera_position / np.linalg.norm(
             camera_position)
-        print(camera_position)
+        # Compute yaw and pitch
+        yaw, pitch = compute_yaw_and_pitch(camera_position, camera_distance)
 
-        x, y, z = camera_position
-        if z < 0:
-            yaw = math.pi + math.atan(x / z)
-        elif x < 0:
-            yaw = math.pi * 2 + math.atan(x / z)
-        else:
-            yaw = math.atan(x / z)
-        pitch = -math.asin(y / camera_distance)
-
-        print(yaw, pitch)
-
-        # camera_position = np.array([0, 0, camera_distance])
-        # yaw = math.pi * k / 1000
-        # pitch = 0
-
-        quaternion_yaw = generate_quaternion(yaw=yaw)
-        quaternion_pitch = generate_quaternion(pitch=pitch)
-        quaternion = multiply_quaternion(quaternion_pitch, quaternion_yaw)
-        quaternion = quaternion / np.linalg.norm(quaternion)
-        camera_node.rotation = quaternion
+        camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
         camera_node.translation = camera_position
-        color, depth = renderer.render(
-            scene, flags=RenderFlags.SHADOWS_DIRECTIONAL)
+
+        # Rendering
+        image = renderer.render(
+            scene,
+            flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
+                   | RenderFlags.ALL_SOLID))[0]
         plt.clf()
-        plt.imshow(color)
-        plt.pause(1)
+        plt.imshow(image)
+        plt.pause(0.1)
+
+        update_block_position(cube_nodes, color_candidates)
+        
+    print(1000 / (time.time() - start_time))
     renderer.delete()
 
 
