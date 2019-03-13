@@ -10,15 +10,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyglet
 import trimesh
-from pyrender import (DirectionalLight, Mesh, MetallicRoughnessMaterial, Node,
-                      OffscreenRenderer, PerspectiveCamera, OrthographicCamera,
-                      PointLight, Primitive, Scene, SpotLight, Viewer,
-                      RenderFlags)
 from tqdm import tqdm
 
-import gqn
+from archiver import Archiver, SceneData
+from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
+                      OrthographicCamera, RenderFlags, Scene)
 
-pyglet.options["shadow_window"] = False
+cube_size = 0.25
 
 
 def get_available_axis_and_direction(space, pos):
@@ -78,7 +76,7 @@ def generate_block_positions(num_cubes):
     center_of_gravity = [0, 0, 0]
 
     for location in block_locations:
-        shift = 1
+        shift = cube_size
         position = (shift * location[0], shift * location[1],
                     shift * location[2])
 
@@ -107,14 +105,10 @@ def build_scene(color_candidates):
         ambient_light=np.array([0.3, 0.3, 0.3, 1.0]))
     cube_nodes = []
     for position in cube_position_array:
-        boxv_trimesh = trimesh.creation.box(extents=np.ones(3))
-        color = np.array(random.choice(color_candidates))
-        vertex_colors = np.broadcast_to(color, boxv_trimesh.vertices.shape)
-        boxv_trimesh.visual.vertex_colors = vertex_colors
-        boxv_mesh = Mesh.from_trimesh(boxv_trimesh, smooth=False)
-
+        mesh = trimesh.creation.box(extents=cube_size * np.ones(3))
+        mesh = Mesh.from_trimesh(mesh, smooth=False)
         node = Node(
-            mesh=boxv_mesh,
+            mesh=mesh,
             translation=np.array(([
                 position[0] - center_of_gravity[0],
                 position[1] - center_of_gravity[1],
@@ -122,6 +116,8 @@ def build_scene(color_candidates):
             ])))
         scene.add_node(node)
         cube_nodes.append(node)
+
+    update_cube_color_and_position(cube_nodes, color_candidates)
 
     # Place a light
     light = DirectionalLight(color=np.ones(3), intensity=20.0)
@@ -136,7 +132,7 @@ def build_scene(color_candidates):
     return scene, cube_nodes
 
 
-def update_block_position(cube_nodes, color_candidates):
+def update_cube_color_and_position(cube_nodes, color_candidates):
     assert len(cube_nodes) == args.num_cubes
 
     # Generate positions of each cube
@@ -209,6 +205,11 @@ def genearte_camera_quaternion(yaw, pitch):
 
 
 def main():
+    try:
+        os.mkdir(args.output_directory)
+    except:
+        pass
+
     # Initialize colors
     color_candidates = []
     for n in range(args.num_colors):
@@ -219,22 +220,18 @@ def main():
         color_candidates.append((red, green, blue))
 
     scene, cube_nodes = build_scene(color_candidates)
-    camera = OrthographicCamera(xmag=3.5, ymag=3.5)
+    camera = OrthographicCamera(xmag=0.9, ymag=0.9)
     camera_node = Node(camera=camera)
     scene.add_node(camera_node)
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)
 
-    camera_distance = 5
+    camera_distance = 2
 
     # for k in range(1000):
     #     yaw = math.pi * 2 * k / 100
     #     pitch = -math.atan(3 / 5)
-    #     quaternion_yaw = generate_quaternion(yaw=yaw)
-    #     quaternion_pitch = generate_quaternion(pitch=pitch)
-    #     quaternion = multiply_quaternion(quaternion_pitch, quaternion_yaw)
-    #     quaternion = quaternion / np.linalg.norm(quaternion)
-    #     camera_node.rotation = quaternion
+    #     camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
     #     camera_node.translation = np.array(
     #         [5 * math.sin(yaw), 3, 5 * math.cos(yaw)])
     #     color, depth = renderer.render(scene, flags=RenderFlags.SHADOWS_DIRECTIONAL)
@@ -255,17 +252,26 @@ def main():
     #     print(x, z, yaw)
     # exit()
 
-    start_time = time.time()
-    for k in range(10):
+    archiver = Archiver(
+        directory=args.output_directory,
+        total_scenes=args.total_scenes,
+        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
+        image_size=(args.image_size, args.image_size),
+        num_observations_per_scene=args.num_observations_per_scene,
+        initial_file_number=args.initial_file_number)
 
-        for observation_index in range(15):
+    for scene_index in range(args.total_scenes):
 
+        scene_data = SceneData((args.image_size, args.image_size),
+                               args.num_observations_per_scene)
+        for observation_index in range(args.num_observations_per_scene):
             # Generate random point on a sphere
             camera_position = np.random.normal(size=3)
             camera_position = camera_distance * camera_position / np.linalg.norm(
                 camera_position)
             # Compute yaw and pitch
-            yaw, pitch = compute_yaw_and_pitch(camera_position, camera_distance)
+            yaw, pitch = compute_yaw_and_pitch(camera_position,
+                                               camera_distance)
 
             camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
             camera_node.translation = camera_position
@@ -274,13 +280,15 @@ def main():
             image = renderer.render(
                 scene,
                 flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
-                    | RenderFlags.ALL_SOLID))[0]
+                       | RenderFlags.ALL_SOLID))[0]
+            scene_data.add(image, camera_position, math.cos(yaw),
+                           math.sin(yaw), math.cos(pitch), math.sin(pitch))
             plt.clf()
             plt.imshow(image)
             plt.pause(0.1)
 
         # Change cube color and position
-        update_block_position(cube_nodes, color_candidates)
+        update_cube_color_and_position(cube_nodes, color_candidates)
 
         # Transfer changes to the vertex buffer on gpu
         udpate_vertex_buffer(cube_nodes)
@@ -291,20 +299,13 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
-    parser.add_argument(
-        "--total-observations", "-total", type=int, default=2000000)
-    parser.add_argument(
-        "--num-observations-per-file", "-per-file", type=int, default=2000)
-    parser.add_argument("--initial-file-number", "-f", type=int, default=1)
-    parser.add_argument("--num-views-per-scene", "-k", type=int, default=15)
+    parser.add_argument("--total-scenes", "-total", type=int, default=2000000)
+    parser.add_argument("--num-scenes-per-file", type=int, default=2000)
+    parser.add_argument("--initial-file-number", type=int, default=1)
+    parser.add_argument("--num-observations-per-scene", type=int, default=15)
     parser.add_argument("--image-size", type=int, default=64)
-    parser.add_argument("--num-cubes", "-cubes", type=int, default=5)
-    parser.add_argument("--num-colors", "-colors", type=int, default=10)
-    parser.add_argument(
-        "--output-directory",
-        "-out",
-        type=str,
-        default="dataset_shepard_matzler_train")
+    parser.add_argument("--num-cubes", type=int, default=5)
+    parser.add_argument("--num-colors", type=int, default=10)
+    parser.add_argument("--output-directory", type=str, required=True)
     args = parser.parse_args()
     main()
