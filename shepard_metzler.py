@@ -206,7 +206,7 @@ def genearte_camera_quaternion(yaw, pitch):
 
 def main():
     try:
-        os.mkdir(args.output_directory)
+        os.makedirs(args.output_directory)
     except:
         pass
 
@@ -228,30 +228,6 @@ def main():
 
     camera_distance = 2
 
-    # for k in range(1000):
-    #     yaw = math.pi * 2 * k / 100
-    #     pitch = -math.atan(3 / 5)
-    #     camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
-    #     camera_node.translation = np.array(
-    #         [5 * math.sin(yaw), 3, 5 * math.cos(yaw)])
-    #     color, depth = renderer.render(scene, flags=RenderFlags.SHADOWS_DIRECTIONAL)
-    #     plt.clf()
-    #     plt.imshow(color)
-    #     plt.pause(1e-10)
-    # renderer.delete()
-
-    # for k in range(1000):
-    #     x = math.sin(math.pi * 2 * k / 1000)
-    #     z = math.cos(math.pi * 2 * k / 1000)
-    #     if z < 0:
-    #         yaw = math.pi + math.atan(x / z)
-    #     elif x < 0:
-    #         yaw = math.pi * 2 + math.atan(x / z)
-    #     else:
-    #         yaw = math.atan(x / z)
-    #     print(x, z, yaw)
-    # exit()
-
     archiver = Archiver(
         directory=args.output_directory,
         total_scenes=args.total_scenes,
@@ -260,7 +236,7 @@ def main():
         num_observations_per_scene=args.num_observations_per_scene,
         initial_file_number=args.initial_file_number)
 
-    for scene_index in range(args.total_scenes):
+    for scene_index in tqdm(range(args.total_scenes)):
 
         scene_data = SceneData((args.image_size, args.image_size),
                                args.num_observations_per_scene)
@@ -283,9 +259,11 @@ def main():
                        | RenderFlags.ALL_SOLID))[0]
             scene_data.add(image, camera_position, math.cos(yaw),
                            math.sin(yaw), math.cos(pitch), math.sin(pitch))
-            plt.clf()
-            plt.imshow(image)
-            plt.pause(0.1)
+            # plt.clf()
+            # plt.imshow(image)
+            # plt.pause(0.1)
+
+        archiver.add(scene_data)
 
         # Change cube color and position
         update_cube_color_and_position(cube_nodes, color_candidates)
@@ -293,7 +271,6 @@ def main():
         # Transfer changes to the vertex buffer on gpu
         udpate_vertex_buffer(cube_nodes)
 
-    print(1000 / (time.time() - start_time))
     renderer.delete()
 
 
