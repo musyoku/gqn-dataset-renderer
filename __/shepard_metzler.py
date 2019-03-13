@@ -1,23 +1,16 @@
 import argparse
 import colorsys
 import math
-import os
 import random
 import time
-
 import cv2
+
 import matplotlib.pyplot as plt
 import numpy as np
-import pyglet
-import trimesh
-from pyrender import (DirectionalLight, Mesh, MetallicRoughnessMaterial, Node,
-                      OffscreenRenderer, PerspectiveCamera, PointLight,
-                      Primitive, Scene, SpotLight, Viewer)
 from tqdm import tqdm
 
 import gqn
-
-pyglet.options["shadow_window"] = False
+import rtx
 
 
 def get_available_axis_and_direction(space, pos):
@@ -96,48 +89,43 @@ def generate_block_positions(num_cubes):
 
 def build_scene(color_array):
     # Generate positions of each cube
-    cube_position_array, center_of_gravity = generate_block_positions(
-        args.num_cubes)
+    cube_position_array, shift = generate_block_positions(args.num_cubes)
     assert len(cube_position_array) == args.num_cubes
 
     # Place cubes
-    scene = Scene(
-        bg_color=np.array([0.0, 0.0, 0.0]),
-        ambient_light=np.array([0.2, 0.2, 0.2, 1.0]))
+    scene = rtx.Scene(ambient_color=(0, 0, 0))
     for position in cube_position_array:
-        boxv_trimesh = trimesh.creation.box(extents=1 * np.ones(3))
-        color = np.array(random.choice(color_array))
-        vertex_colors = np.broadcast_to(color, boxv_trimesh.vertices.shape)
-        boxv_trimesh.visual.vertex_colors = vertex_colors
-        boxv_mesh = Mesh.from_trimesh(boxv_trimesh, smooth=False)
+        geometry = rtx.BoxGeometry(1, 1, 1)
+        geometry.set_position((
+            position[0] - shift[0],
+            position[1] - shift[1],
+            position[2] - shift[2],
+        ))
+        material = rtx.LambertMaterial(0.3)
+        mapping = rtx.SolidColorMapping(random.choice(color_array))
+        cube = rtx.Object(geometry, material, mapping)
+        scene.add(cube)
 
-        node = Node(
-            mesh=boxv_mesh,
-            translation=np.array(([
-                position[0] - center_of_gravity[0],
-                position[1] - center_of_gravity[1],
-                position[2] - center_of_gravity[2],
-            ])))
-        scene.add_node(node)
-
-    light = PointLight(color=np.ones(3), intensity=0.0)
-    light = DirectionalLight(color=np.ones(3), intensity=10.0)
-    node = Node(light=light, translation=np.array([0, 5, 5]))
-    scene.add_node(node)
+    # Place a light
+    size = 50
+    wrapper = rtx.ObjectGroup()
+    geometry = rtx.PlainGeometry(size, size)
+    geometry.set_rotation((0, math.pi / 2, 0))
+    geometry.set_position((-10, 0, 0))
+    material = rtx.EmissiveMaterial(10, visible=False)
+    mapping = rtx.SolidColorMapping((1, 1, 1))
+    light = rtx.Object(geometry, material, mapping)
+    wrapper.add(light)
+    wrapper.set_rotation((-math.pi / 3, math.pi / 4, 0))
+    scene.add(wrapper)
 
     return scene
 
 
-def multiply_quaternion(A, B):
-    a = A[3]
-    b = B[3]
-    U = A[:3]
-    V = B[:3]
-    W = a * V + b * U + U * V
-    return np.array([W[0], W[1], W[2], a * b - U @ V])
-
-
 def main():
+    # Set GPU device
+    rtx.set_device(args.gpu_device)
+
     # Initialize colors
     color_array = []
     for n in range(args.num_colors):
@@ -145,47 +133,21 @@ def main():
         saturation = 0.9
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
-        color_array.append((red, green, blue))
+        color_array.append((red, green, blue, 1))
 
     screen_width = args.image_size
     screen_height = args.image_size
 
-    scene = build_scene(color_array)
-    camera = PerspectiveCamera(yfov=(np.pi / 3.0))
-    camera_node = Node(
-        camera=camera,
-        rotation=np.array([0,
-                           math.sin(math.pi / 2), 0,
-                           math.cos(math.pi / 2)]),
-        translation=np.array([0, 0, -5]))
-    scene.add_node(camera_node)
-    r = OffscreenRenderer(viewport_width=64, viewport_height=64)
-    start_time = time.time()
-    for k in range(1000):
-        yaw = math.pi * 2 * k / 100
-        pitch = -math.pi / 4
-        quaternion_yaw = np.array([
-            0,
-            math.sin(yaw / 2),
-            0,
-            math.cos(yaw / 2),
-        ])
-        quaternion_pitch = np.array([
-            math.sin(pitch / 2),
-            0,
-            0,
-            math.cos(pitch / 2),
-        ])
-        quaternion = multiply_quaternion(quaternion_pitch, quaternion_yaw)
-        quaternion = quaternion / np.linalg.norm(quaternion)
-        camera_node.rotation = quaternion
-        camera_node.translation = np.array(
-            [5 * math.sin(yaw), 3, 5 * math.cos(yaw)])
-        color, depth = r.render(scene)
-        plt.clf()
-        plt.imshow(color)
-        plt.pause(1e-10)
-    r.delete()
+    # Setting up a raytracer
+    rt_args = rtx.RayTracingArguments()
+    rt_args.num_rays_per_pixel = 512
+    rt_args.max_bounce = 2
+    rt_args.supersampling_enabled = False
+    rt_args.ambient_light_intensity = 0.05
+
+    cuda_args = rtx.CUDAKernelLaunchArguments()
+    cuda_args.num_threads = 64
+    cuda_args.num_rays_per_thread = 32
 
     renderer = rtx.Renderer()
     render_buffer = np.zeros(
@@ -252,69 +214,3 @@ if __name__ == "__main__":
         default="dataset_shepard_matzler_train")
     args = parser.parse_args()
     main()
-
-boxv_trimesh = trimesh.creation.box(extents=0.1 * np.ones(3))
-boxv_vertex_colors = np.zeros((boxv_trimesh.vertices.shape), dtype=np.float32)
-boxv_vertex_colors[:, 0] = 1.0
-boxv_trimesh.visual.vertex_colors = boxv_vertex_colors
-boxv_mesh = Mesh.from_trimesh(boxv_trimesh, smooth=False)
-
-direc_l = DirectionalLight(color=np.ones(3), intensity=1.0)
-spot_l = SpotLight(
-    color=np.ones(3),
-    intensity=10.0,
-    innerConeAngle=np.pi / 16,
-    outerConeAngle=np.pi / 6)
-point_l = PointLight(color=np.ones(3), intensity=10.0)
-
-camera = PerspectiveCamera(yfov=(np.pi / 3.0))
-cam_pose = np.array([[0.0, -np.sqrt(2) / 2,
-                      np.sqrt(2) / 2, 0.5], [1.0, 0.0, 0.0, 0.0],
-                     [0.0, np.sqrt(2) / 2,
-                      np.sqrt(2) / 2, 0.4], [0.0, 0.0, 0.0, 1.0]])
-
-scene = Scene(
-    bg_color=np.array([0.0, 0.0, 0.0]),
-    ambient_light=np.array([0.2, 0.2, 0.2, 1.0]))
-
-#==============================================================================
-# Adding objects to the scene
-#==============================================================================
-
-#------------------------------------------------------------------------------
-# By manually creating nodes
-#------------------------------------------------------------------------------
-boxv_node = Node(mesh=boxv_mesh, translation=np.array([0.0, 0.0, 0.0]))
-scene.add_node(boxv_node)
-
-#------------------------------------------------------------------------------
-# By using the add() utility function
-#------------------------------------------------------------------------------
-
-light_node = Node(light=point_l, translation=np.array([1, 1, 0]))
-scene.add_node(light_node)
-
-#==============================================================================
-# Using the viewer with a default camera
-#==============================================================================
-
-# v = Viewer(scene, shadows=True)
-
-#==============================================================================
-# Using the viewer with a pre-specified camera
-#==============================================================================
-cam_node = scene.add(camera, pose=cam_pose)
-v = Viewer(scene, central_node=boxv_node)
-
-#==============================================================================
-# Rendering offscreen from that camera
-#==============================================================================
-r = OffscreenRenderer(viewport_width=64, viewport_height=64)
-start_time = time.time()
-for k in range(1000):
-    boxv_node.translation = np.array([k / 100, 0.0, 0.0])
-    color, depth = r.render(scene)
-    # plt.imshow(color)
-    # plt.pause(1e-10)
-print(1000 / (time.time() - start_time))
-r.delete()
