@@ -206,8 +206,6 @@ def main():
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)
 
-    camera_distance = 2
-
     archiver = Archiver(
         directory=args.output_directory,
         total_scenes=args.total_scenes,
@@ -218,6 +216,7 @@ def main():
 
     for scene_index in tqdm(range(args.total_scenes)):
 
+        camera_distance = 2
         scene_data = SceneData((args.image_size, args.image_size),
                                args.num_observations_per_scene)
         for observation_index in range(args.num_observations_per_scene):

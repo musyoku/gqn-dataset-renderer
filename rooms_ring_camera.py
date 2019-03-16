@@ -97,13 +97,20 @@ def build_scene(colors, floor_textures, wall_textures, objects):
     scene.add_node(node)
 
     # Place objects
+    directions = [-1.0, 0.0, 1.0]
+    available_positions = []
+    for z in directions:
+        for x in directions:
+            available_positions.append((x, z))
+    available_positions = np.array(available_positions)
     num_objects = random.choice(range(args.max_num_objects)) + 1
-    for _ in range(num_objects):
+    indices = np.random.choice(
+        np.arange(len(available_positions)), replace=False, size=num_objects)
+    for xz in available_positions[indices]:
         node = random.choice(objects)()
         node.mesh.primitives[0].color_0 = random.choice(colors)
-        xz = np.random.choice(np.array([-1.0, 0.0, 1.0]), replace=True, size=2)
         if args.discrete_position == False:
-            xz += np.random.uniform(-0.5, 0.5, size=xz.shape)
+            xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
         parent = Node(children=[node], translation=np.array([xz[0], 0, xz[1]]))
         scene.add_node(parent)
 
@@ -173,38 +180,52 @@ def main():
         pyrender.objects.Sphere,
     ]
 
-    scene = build_scene(colors, floor_textures, wall_textures, objects)
-    camera = PerspectiveCamera(yfov=math.pi / 4)
-    camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
-    scene.add_node(camera_node)
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)
 
-    camera_distance = 4
-    for m in range(100):
-        rand_position_xz = np.random.normal(size=2)
-        rand_position_xz = camera_distance * rand_position_xz / np.linalg.norm(
-            rand_position_xz)
-        # Compute yaw and pitch
-        camera_direction = np.array(
-            [rand_position_xz[0], 0, rand_position_xz[1]])
-        yaw, pitch = compute_yaw_and_pitch(camera_direction)
+    archiver = Archiver(
+        directory=args.output_directory,
+        total_scenes=args.total_scenes,
+        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
+        image_size=(args.image_size, args.image_size),
+        num_observations_per_scene=args.num_observations_per_scene,
+        initial_file_number=args.initial_file_number)
 
-        camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
-        camera_position = np.array(
-            [rand_position_xz[0], 1, rand_position_xz[1]])
-        camera_node.translation = camera_position
+    for scene_index in tqdm(range(args.total_scenes)):
+        scene = build_scene(colors, floor_textures, wall_textures, objects)
+        camera_distance = 4
+        camera = PerspectiveCamera(yfov=math.pi / 4)
+        camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
+        scene.add_node(camera_node)
+        scene_data = SceneData((args.image_size, args.image_size),
+                               args.num_observations_per_scene)
+        for observation_index in range(args.num_observations_per_scene):
+            rand_position_xz = np.random.normal(size=2)
+            rand_position_xz = camera_distance * rand_position_xz / np.linalg.norm(
+                rand_position_xz)
+            # Compute yaw and pitch
+            camera_direction = np.array(
+                [rand_position_xz[0], 0, rand_position_xz[1]])
+            yaw, pitch = compute_yaw_and_pitch(camera_direction)
 
-        # v = Viewer(scene, shadows=True, viewport_size=(400, 400))
+            camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
+            camera_position = np.array(
+                [rand_position_xz[0], 1, rand_position_xz[1]])
+            camera_node.translation = camera_position
 
-        # Rendering
-        flags = RenderFlags.SHADOWS_DIRECTIONAL
-        if args.anti_aliasing:
-            flags |= RenderFlags.ANTI_ALIASING
-        image = renderer.render(scene, flags=flags)[0]
-        plt.clf()
-        plt.imshow(image)
-        plt.pause(0.1)
+            # Rendering
+            flags = RenderFlags.SHADOWS_DIRECTIONAL
+            if args.anti_aliasing:
+                flags |= RenderFlags.ANTI_ALIASING
+            image = renderer.render(scene, flags=flags)[0]
+            scene_data.add(image, camera_position, math.cos(yaw),
+                           math.sin(yaw), math.cos(pitch), math.sin(pitch))
+
+            # plt.clf()
+            # plt.imshow(image)
+            # plt.pause(0.1)
+
+        archiver.add(scene_data)
 
     renderer.delete()
 
@@ -214,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument("--total-scenes", "-total", type=int, default=2000000)
     parser.add_argument("--num-scenes-per-file", type=int, default=2000)
     parser.add_argument("--initial-file-number", type=int, default=1)
-    parser.add_argument("--num-observations-per-scene", type=int, default=15)
+    parser.add_argument("--num-observations-per-scene", type=int, default=10)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--max-num-objects", type=int, default=3)
     parser.add_argument("--num-colors", type=int, default=10)

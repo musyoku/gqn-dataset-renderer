@@ -31,12 +31,12 @@ def Capsule():
 
 
 def Cylinder():
-    sphere = trimesh.creation.cylinder(radius=0.25, height=0.5)
+    sphere = trimesh.creation.cylinder(radius=0.25, height=0.75)
     mesh = Mesh.from_trimesh(sphere, smooth=True)
     node = Node(
         mesh=mesh,
         rotation=quaternion.from_pitch(math.pi / 2),
-        translation=np.array([0, 0.25, 0]))
+        translation=np.array([0, 0.375, 0]))
     return node
 
 
