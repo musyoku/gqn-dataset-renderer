@@ -21,6 +21,7 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       Primitive)
 
 
+
 def set_random_texture(node, path, intensity=1.0):
     texture_image = Image.open(path)
     if intensity < 1.0:
@@ -37,19 +38,19 @@ def build_scene(colors, floor_textures, wall_textures, objects):
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
 
-    floor_trimesh = trimesh.load("models/floor.obj")
+    floor_trimesh = trimesh.load("objects/floor.obj")
     mesh = Mesh.from_trimesh(floor_trimesh)
     node = Node(
         mesh=mesh,
         rotation=generate_quaternion(pitch=-math.pi / 2),
         translation=np.array([0, 0, 0]))
     texture_path = random.choice(floor_textures)
-    set_random_texture(node, texture_path, intensity=0.6)
+    set_random_texture(node, texture_path, intensity=0.8)
     scene.add_node(node)
 
     texture_path = random.choice(wall_textures)
 
-    wall_trimesh = trimesh.load("models/wall.obj")
+    wall_trimesh = trimesh.load("objects/wall.obj")
     mesh = Mesh.from_trimesh(wall_trimesh)
     node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
     set_random_texture(node, texture_path)
@@ -85,7 +86,7 @@ def build_scene(colors, floor_textures, wall_textures, objects):
     #     translation=np.array([0, 5, 5]))
     # scene.add_node(node)
 
-    light = DirectionalLight(color=np.ones(3), intensity=20)
+    light = DirectionalLight(color=np.ones(3), intensity=10)
     position = np.array([0, 1, 1])
     position = position / np.linalg.norm(position)
     yaw, pitch = compute_yaw_and_pitch(position, 1)
@@ -96,13 +97,10 @@ def build_scene(colors, floor_textures, wall_textures, objects):
     scene.add_node(node)
 
     # Place objects
-    object_trimesh = random.choice(objects)
-    vertex_colors = np.broadcast_to(
-        random.choice(colors), object_trimesh.vertices.shape)
-    object_trimesh.visual.vertex_colors = vertex_colors
-    mesh = Mesh.from_trimesh(object_trimesh, smooth=True)
-    node = Node(mesh=mesh, translation=np.array([0, 0.5, -1]))
-    scene.add_node(node)
+    node = random.choice(objects)
+    node.mesh.primitives[0].color_0 = (255, 0, 255, 255)
+    parent = Node(children=[node], translation=np.array([0, 0, -1]))
+    scene.add_node(parent)
 
     return scene
 
@@ -111,32 +109,6 @@ def udpate_vertex_buffer(cube_nodes):
     for node in (cube_nodes):
         node.mesh.primitives[0].update_vertex_buffer_data()
 
-
-def generate_quaternion(yaw=None, pitch=None):
-    if yaw is not None:
-        return np.array([
-            0,
-            math.sin(yaw / 2),
-            0,
-            math.cos(yaw / 2),
-        ])
-    if pitch is not None:
-        return np.array([
-            math.sin(pitch / 2),
-            0,
-            0,
-            math.cos(pitch / 2),
-        ])
-    raise NotImplementedError
-
-
-def multiply_quaternion(A, B):
-    a = A[3]
-    b = B[3]
-    U = A[:3]
-    V = B[:3]
-    W = a * V + b * U + np.cross(V, U)
-    return np.array([W[0], W[1], W[2], a * b - U @ V])
 
 
 def compute_yaw_and_pitch(position, distance):
@@ -189,8 +161,9 @@ def main():
     ]
 
     objects = [
-        trimesh.creation.capsule(radius=0.5, height=0),  # Sphere
-        trimesh.creation.cylinder(radius=0.5, height=1),
+        # get_sphere_node(),
+        get_capsule_node(),
+        # get_cylinder_node(),
     ]
 
     scene = build_scene(colors, floor_textures, wall_textures, objects)

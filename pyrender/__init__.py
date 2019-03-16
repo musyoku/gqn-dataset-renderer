@@ -12,6 +12,7 @@ from .renderer import Renderer
 from .offscreen import OffscreenRenderer
 from .version import __version__
 from .constants import RenderFlags, TextAlign, GLTF
+from . import quaternion, objects
 
 __all__ = [
     'Camera', 'PerspectiveCamera', 'OrthographicCamera', 'Light', 'PointLight',

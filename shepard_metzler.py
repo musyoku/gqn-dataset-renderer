@@ -1,5 +1,5 @@
 import os
-os.environ["PYOPENGL_PLATFORM"] = "egl"
+# os.environ["PYOPENGL_PLATFORM"] = "egl"
 
 import argparse
 import colorsys
@@ -14,6 +14,7 @@ import pyglet
 import trimesh
 from tqdm import tqdm
 
+import pyrender
 from archiver import Archiver, SceneData
 from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       OrthographicCamera, RenderFlags, Scene)
@@ -75,7 +76,7 @@ def generate_block_positions(num_cubes):
         block_abs_locations[current_absolute_pos] = True
 
     position_array = []
-    center_of_gravity = [0, 0, 0]
+    center_of_gravity = np.array([0.0, 0.0, 0.0])
 
     for location in block_locations:
         shift = cube_size
@@ -91,6 +92,9 @@ def generate_block_positions(num_cubes):
     center_of_gravity[0] /= num_cubes
     center_of_gravity[1] /= num_cubes
     center_of_gravity[2] /= num_cubes
+
+    # discretize
+    center_of_gravity = np.round(center_of_gravity / cube_size) * cube_size
 
     return position_array, center_of_gravity
 
@@ -122,10 +126,10 @@ def build_scene(color_candidates):
     update_cube_color_and_position(cube_nodes, color_candidates)
 
     # Place a light
-    light = DirectionalLight(color=np.ones(3), intensity=20.0)
-    quaternion_yaw = generate_quaternion(yaw=(math.pi / 4))
-    quaternion_pitch = generate_quaternion(pitch=(-math.pi / 5))
-    quaternion = multiply_quaternion(quaternion_pitch, quaternion_yaw)
+    light = DirectionalLight(color=np.ones(3), intensity=15.0)
+    quaternion_yaw = pyrender.quaternion.from_yaw(math.pi / 4)
+    quaternion_pitch = pyrender.quaternion.from_pitch(-math.pi / 5)
+    quaternion = pyrender.quaternion.multiply(quaternion_pitch, quaternion_yaw)
     quaternion = quaternion / np.linalg.norm(quaternion)
     node = Node(
         light=light, rotation=quaternion, translation=np.array([1, 1, 1]))
@@ -159,49 +163,23 @@ def udpate_vertex_buffer(cube_nodes):
         node.mesh.primitives[0].update_vertex_buffer_data()
 
 
-def generate_quaternion(yaw=None, pitch=None):
-    if yaw is not None:
-        return np.array([
-            0,
-            math.sin(yaw / 2),
-            0,
-            math.cos(yaw / 2),
-        ])
-    if pitch is not None:
-        return np.array([
-            math.sin(pitch / 2),
-            0,
-            0,
-            math.cos(pitch / 2),
-        ])
-    raise NotImplementedError
-
-
-def multiply_quaternion(A, B):
-    a = A[3]
-    b = B[3]
-    U = A[:3]
-    V = B[:3]
-    W = a * V + b * U + np.cross(V, U)
-    return np.array([W[0], W[1], W[2], a * b - U @ V])
-
-
-def compute_yaw_and_pitch(position, distance):
-    x, y, z = position
+def compute_yaw_and_pitch(vec):
+    x, y, z = vec
+    norm = np.linalg.norm(vec)
     if z < 0:
         yaw = math.pi + math.atan(x / z)
     elif x < 0:
         yaw = math.pi * 2 + math.atan(x / z)
     else:
         yaw = math.atan(x / z)
-    pitch = -math.asin(y / distance)
+    pitch = -math.asin(y / norm)
     return yaw, pitch
 
 
 def genearte_camera_quaternion(yaw, pitch):
-    quaternion_yaw = generate_quaternion(yaw=yaw)
-    quaternion_pitch = generate_quaternion(pitch=pitch)
-    quaternion = multiply_quaternion(quaternion_pitch, quaternion_yaw)
+    quaternion_yaw = pyrender.quaternion.from_yaw(yaw)
+    quaternion_pitch = pyrender.quaternion.from_pitch(pitch)
+    quaternion = pyrender.quaternion.multiply(quaternion_pitch, quaternion_yaw)
     quaternion = quaternion / np.linalg.norm(quaternion)
     return quaternion
 
@@ -248,8 +226,7 @@ def main():
             camera_position = camera_distance * camera_position / np.linalg.norm(
                 camera_position)
             # Compute yaw and pitch
-            yaw, pitch = compute_yaw_and_pitch(camera_position,
-                                               camera_distance)
+            yaw, pitch = compute_yaw_and_pitch(camera_position)
 
             camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
             camera_node.translation = camera_position

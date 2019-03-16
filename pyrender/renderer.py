@@ -329,8 +329,6 @@ class Renderer(object):
         else:
             glDisable(GL_MULTISAMPLE)
 
-        print(glGetString(GL_VERSION))
-
         # Set up camera matrices
         V, P = self._get_camera_matrices(scene)
 
