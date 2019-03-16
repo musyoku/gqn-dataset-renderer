@@ -1,13 +1,15 @@
+import os
+os.environ["PYOPENGL_PLATFORM"] = "egl"
+
 import argparse
 import colorsys
 import math
-import os
 import random
 import time
 
+import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-import numpy as np
 import pyglet
 import trimesh
 from tqdm import tqdm
@@ -253,10 +255,10 @@ def main():
             camera_node.translation = camera_position
 
             # Rendering
-            image = renderer.render(
-                scene,
-                flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
-                       | RenderFlags.ALL_SOLID))[0]
+            flags = RenderFlags.SHADOWS_DIRECTIONAL
+            if args.anti_aliasing:
+                flags |= RenderFlags.ANTI_ALIASING
+            image = renderer.render(scene, flags=flags)[0]
             scene_data.add(image, camera_position, math.cos(yaw),
                            math.sin(yaw), math.cos(pitch), math.sin(pitch))
             # plt.clf()
@@ -284,5 +286,6 @@ if __name__ == "__main__":
     parser.add_argument("--num-cubes", type=int, default=5)
     parser.add_argument("--num-colors", type=int, default=10)
     parser.add_argument("--output-directory", type=str, required=True)
+    parser.add_argument("--anti-aliasing", default=False, action="store_true")
     args = parser.parse_args()
     main()

@@ -10,12 +10,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyglet
 import trimesh
+from PIL import Image
 from tqdm import tqdm
 
 from archiver import Archiver, SceneData
-from pyrender import (PointLight, DirectionalLight, Mesh, Node,
-                      OffscreenRenderer, PerspectiveCamera, RenderFlags, Scene,
-                      Viewer)
+from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
+                      PerspectiveCamera, PointLight, RenderFlags, Scene,
+                      Primitive)
 
 
 def build_scene(color_candidates):
@@ -23,7 +24,7 @@ def build_scene(color_candidates):
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
 
-    floor_trimesh = trimesh.load("models/floor_1.obj")
+    floor_trimesh = trimesh.load("models/floor.obj")
     mesh = Mesh.from_trimesh(floor_trimesh)
     node = Node(
         mesh=mesh,
@@ -31,7 +32,14 @@ def build_scene(color_candidates):
         translation=np.array([0, 0, 0]))
     scene.add_node(node)
 
-    wall_trimesh = trimesh.load("models/wall_1.obj")
+    texture_image = Image.open(
+        "textures/lg_style_01_floor_orange_bright_d.tga")
+    primitive = node.mesh.primitives[0]
+    assert isinstance(primitive, Primitive)
+    print(primitive.material.baseColorTexture)
+    primitive.material.baseColorTexture.source = texture_image
+
+    wall_trimesh = trimesh.load("models/wall.obj")
     mesh = Mesh.from_trimesh(wall_trimesh)
     node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
     scene.add_node(node)
@@ -57,7 +65,7 @@ def build_scene(color_candidates):
         translation=np.array([-3.5, 1.15, 0]))
     scene.add_node(node)
 
-    # light = PointLight(color=np.ones(3), intensity=100.0)
+    # light = PointLight(color=np.ones(3), intensity=200.0)
     # node = Node(
     #     light=light,
     #     translation=np.array([0, 5, 5]))
@@ -68,19 +76,21 @@ def build_scene(color_candidates):
     camera_position = camera_distance * camera_position / np.linalg.norm(
         camera_position)
     # Compute yaw and pitch
-    yaw, pitch = compute_yaw_and_pitch(camera_position,
-                                        camera_distance)
-                                        
+    yaw, pitch = compute_yaw_and_pitch(camera_position, camera_distance)
+
     light = DirectionalLight(color=np.ones(3), intensity=10)
     node = Node(
         light=light,
         rotation=genearte_camera_quaternion(yaw, pitch),
-        translation=np.array([0, 5, 0]))
+        translation=np.array([0, 5, 5]))
     scene.add_node(node)
 
     capsule_trimesh = trimesh.creation.capsule(radius=0.5, height=0)
+    color = np.array([255, 255, 0])
+    vertex_colors = np.broadcast_to(color, capsule_trimesh.vertices.shape)
+    capsule_trimesh.visual.vertex_colors = vertex_colors
     mesh = Mesh.from_trimesh(capsule_trimesh, smooth=True)
-    node = Node(mesh=mesh, translation=np.array([0, 0.5, 0]))
+    node = Node(mesh=mesh, translation=np.array([0, 0.5, -1]))
     scene.add_node(node)
 
     return scene
@@ -160,16 +170,35 @@ def main():
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)
 
-    v = Viewer(scene, shadows=True, viewport_size=(400, 400))
+    for m in range(100):
+        rand_position_xz = np.random.uniform(-3, 3, size=2)
+        rand_position_xz = 3 * rand_position_xz / np.linalg.norm(
+            rand_position_xz)
+        rand_lookat_xz = np.random.uniform(-6, 6, size=2)
+        rand_lookat_xz = np.array([0, 0])
+        camera_position = np.array(
+            [rand_position_xz[0], 1, rand_position_xz[1]])
+        eye_direction = rand_position_xz - rand_lookat_xz
+        eye_direction = np.array([eye_direction[0], 0, eye_direction[1]])
+        # Compute yaw and pitch
+        yaw, pitch = compute_yaw_and_pitch(eye_direction,
+                                           np.linalg.norm(eye_direction))
 
-    # Rendering
-    image = renderer.render(
-        scene,
-        flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
-               | RenderFlags.ALL_SOLID))[0]
-    plt.clf()
-    plt.imshow(image)
-    plt.show()
+        camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
+        camera_node.translation = camera_position
+
+        print(camera_position, yaw, pitch)
+
+        # v = Viewer(scene, shadows=True, viewport_size=(400, 400))
+
+        # Rendering
+        image = renderer.render(
+            scene,
+            flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
+                   | RenderFlags.ALL_SOLID))[0]
+        plt.clf()
+        plt.imshow(image)
+        plt.pause(1)
 
     renderer.delete()
 

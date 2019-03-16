@@ -324,7 +324,12 @@ class Renderer(object):
         # Clear it
         glClearColor(*scene.bg_color)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glDisable(GL_MULTISAMPLE)
+        if flags & RenderFlags.ANTI_ALIASING:
+            glEnable(GL_MULTISAMPLE)
+        else:
+            glDisable(GL_MULTISAMPLE)
+
+        print(glGetString(GL_VERSION))
 
         # Set up camera matrices
         V, P = self._get_camera_matrices(scene)
