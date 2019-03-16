@@ -10,8 +10,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyglet
 import trimesh
-from PIL import Image
+from PIL import Image, ImageEnhance
 from tqdm import tqdm
+
+from OpenGL.GL import GL_LINEAR_MIPMAP_LINEAR
 
 from archiver import Archiver, SceneData
 from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
@@ -19,7 +21,18 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       Primitive)
 
 
-def build_scene(color_candidates):
+def set_random_texture(node, path, intensity=1.0):
+    texture_image = Image.open(path)
+    if intensity < 1.0:
+        enhancer = ImageEnhance.Brightness(texture_image)
+        texture_image = enhancer.enhance(intensity)
+    primitive = node.mesh.primitives[0]
+    assert isinstance(primitive, Primitive)
+    primitive.material.baseColorTexture.source = texture_image
+    primitive.material.baseColorTexture.sampler.minFilter = GL_LINEAR_MIPMAP_LINEAR
+
+
+def build_scene(colors, floor_textures, wall_textures, objects):
     scene = Scene(
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
@@ -30,18 +43,16 @@ def build_scene(color_candidates):
         mesh=mesh,
         rotation=generate_quaternion(pitch=-math.pi / 2),
         translation=np.array([0, 0, 0]))
+    texture_path = random.choice(floor_textures)
+    set_random_texture(node, texture_path, intensity=0.6)
     scene.add_node(node)
 
-    texture_image = Image.open(
-        "textures/lg_style_01_floor_orange_bright_d.tga")
-    primitive = node.mesh.primitives[0]
-    assert isinstance(primitive, Primitive)
-    print(primitive.material.baseColorTexture)
-    primitive.material.baseColorTexture.source = texture_image
+    texture_path = random.choice(wall_textures)
 
     wall_trimesh = trimesh.load("models/wall.obj")
     mesh = Mesh.from_trimesh(wall_trimesh)
     node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
+    set_random_texture(node, texture_path)
     scene.add_node(node)
 
     mesh = Mesh.from_trimesh(wall_trimesh)
@@ -49,6 +60,7 @@ def build_scene(color_candidates):
         mesh=mesh,
         rotation=generate_quaternion(yaw=math.pi),
         translation=np.array([0, 1.15, 3.5]))
+    set_random_texture(node, texture_path)
     scene.add_node(node)
 
     mesh = Mesh.from_trimesh(wall_trimesh)
@@ -56,6 +68,7 @@ def build_scene(color_candidates):
         mesh=mesh,
         rotation=generate_quaternion(yaw=-math.pi / 2),
         translation=np.array([3.5, 1.15, 0]))
+    set_random_texture(node, texture_path)
     scene.add_node(node)
 
     mesh = Mesh.from_trimesh(wall_trimesh)
@@ -63,6 +76,7 @@ def build_scene(color_candidates):
         mesh=mesh,
         rotation=generate_quaternion(yaw=math.pi / 2),
         translation=np.array([-3.5, 1.15, 0]))
+    set_random_texture(node, texture_path)
     scene.add_node(node)
 
     # light = PointLight(color=np.ones(3), intensity=200.0)
@@ -71,25 +85,22 @@ def build_scene(color_candidates):
     #     translation=np.array([0, 5, 5]))
     # scene.add_node(node)
 
-    camera_distance = 5
-    camera_position = np.array([0, 5, 5])
-    camera_position = camera_distance * camera_position / np.linalg.norm(
-        camera_position)
-    # Compute yaw and pitch
-    yaw, pitch = compute_yaw_and_pitch(camera_position, camera_distance)
-
-    light = DirectionalLight(color=np.ones(3), intensity=10)
+    light = DirectionalLight(color=np.ones(3), intensity=20)
+    position = np.array([0, 1, 1])
+    position = position / np.linalg.norm(position)
+    yaw, pitch = compute_yaw_and_pitch(position, 1)
     node = Node(
         light=light,
         rotation=genearte_camera_quaternion(yaw, pitch),
-        translation=np.array([0, 5, 5]))
+        translation=np.array([0, 1, 1]))
     scene.add_node(node)
 
-    capsule_trimesh = trimesh.creation.capsule(radius=0.5, height=0)
-    color = np.array([255, 255, 0])
-    vertex_colors = np.broadcast_to(color, capsule_trimesh.vertices.shape)
-    capsule_trimesh.visual.vertex_colors = vertex_colors
-    mesh = Mesh.from_trimesh(capsule_trimesh, smooth=True)
+    # Place objects
+    object_trimesh = random.choice(objects)
+    vertex_colors = np.broadcast_to(
+        random.choice(colors), object_trimesh.vertices.shape)
+    object_trimesh.visual.vertex_colors = vertex_colors
+    mesh = Mesh.from_trimesh(object_trimesh, smooth=True)
     node = Node(mesh=mesh, translation=np.array([0, 0.5, -1]))
     scene.add_node(node)
 
@@ -154,16 +165,35 @@ def main():
     except:
         pass
 
-    # Initialize colors
-    color_candidates = []
+    # Colors
+    colors = []
     for n in range(args.num_colors):
         hue = n / args.num_colors
         saturation = 1
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
-        color_candidates.append((red, green, blue))
+        colors.append(np.array((red, green, blue)))
 
-    scene = build_scene(color_candidates)
+    floor_textures = [
+        "textures/lg_floor_d.tga",
+        "textures/lg_style_01_floor_blue_d.tga",
+        "textures/lg_style_01_floor_orange_bright_d.tga",
+    ]
+
+    wall_textures = [
+        "textures/lg_style_01_wall_cerise_d.tga",
+        "textures/lg_style_01_wall_green_bright_d.tga",
+        "textures/lg_style_01_wall_red_bright_d.tga",
+        "textures/lg_style_02_wall_yellow_d.tga",
+        "textures/lg_style_03_wall_orange_bright_d.tga",
+    ]
+
+    objects = [
+        trimesh.creation.capsule(radius=0.5, height=0),  # Sphere
+        trimesh.creation.cylinder(radius=0.5, height=1),
+    ]
+
+    scene = build_scene(colors, floor_textures, wall_textures, objects)
     camera = PerspectiveCamera(yfov=math.pi / 4)
     camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
     scene.add_node(camera_node)
@@ -192,10 +222,10 @@ def main():
         # v = Viewer(scene, shadows=True, viewport_size=(400, 400))
 
         # Rendering
-        image = renderer.render(
-            scene,
-            flags=(RenderFlags.SHADOWS_DIRECTIONAL | RenderFlags.OFFSCREEN
-                   | RenderFlags.ALL_SOLID))[0]
+        flags = RenderFlags.SHADOWS_DIRECTIONAL
+        if args.anti_aliasing:
+            flags |= RenderFlags.ANTI_ALIASING
+        image = renderer.render(scene, flags=flags)[0]
         plt.clf()
         plt.imshow(image)
         plt.pause(1)
@@ -213,5 +243,6 @@ if __name__ == "__main__":
     parser.add_argument("--num-cubes", type=int, default=5)
     parser.add_argument("--num-colors", type=int, default=10)
     parser.add_argument("--output-directory", type=str, required=True)
+    parser.add_argument("--anti-aliasing", default=False, action="store_true")
     args = parser.parse_args()
     main()

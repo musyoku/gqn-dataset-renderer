@@ -134,6 +134,7 @@ class EGLPlatform(Platform):
             os.environ['DISPLAY'] = orig_dpy
 
         # Initialize EGL
+        print(self._egl_display, major, minor)
         assert eglInitialize(self._egl_display, major, minor)
         assert eglChooseConfig(
             self._egl_display, config_attributes, configs, 1, num_configs
