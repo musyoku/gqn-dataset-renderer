@@ -99,7 +99,7 @@ def build_scene(colors, floor_textures, wall_textures, objects):
     # Place objects
     num_objects = random.choice(range(args.max_num_objects)) + 1
     for _ in range(num_objects):
-        node = random.choice(objects)()
+        node = random.choice(objects)
         node.mesh.primitives[0].color_0 = random.choice(colors)
         xz = np.random.choice(np.array([-1.0, 0.0, 1.0]), replace=True, size=2)
         if args.discrete_position == False:
@@ -166,11 +166,11 @@ def main():
     ]
 
     objects = [
-        pyrender.objects.Capsule,
-        pyrender.objects.Cylinder,
-        pyrender.objects.Icosahedron,
-        pyrender.objects.Box,
-        pyrender.objects.Sphere,
+        pyrender.objects.Capsule(),
+        pyrender.objects.Cylinder(),
+        pyrender.objects.Icosahedron(),
+        pyrender.objects.Box(),
+        pyrender.objects.Sphere(),
     ]
 
     scene = build_scene(colors, floor_textures, wall_textures, objects)
@@ -180,19 +180,20 @@ def main():
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)
 
-    camera_distance = 4
     for m in range(100):
-        rand_position_xz = np.random.normal(size=2)
-        rand_position_xz = camera_distance * rand_position_xz / np.linalg.norm(
+        rand_position_xz = np.random.uniform(-3, 3, size=2)
+        rand_position_xz = 3 * rand_position_xz / np.linalg.norm(
             rand_position_xz)
-        # Compute yaw and pitch
-        camera_direction = np.array(
-            [rand_position_xz[0], 0, rand_position_xz[1]])
-        yaw, pitch = compute_yaw_and_pitch(camera_direction)
-
-        camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
+        rand_lookat_xz = np.random.uniform(-6, 6, size=2)
+        rand_lookat_xz = np.array([0, 0])
         camera_position = np.array(
             [rand_position_xz[0], 1, rand_position_xz[1]])
+        eye_direction = rand_position_xz - rand_lookat_xz
+        eye_direction = np.array([eye_direction[0], 0, eye_direction[1]])
+        # Compute yaw and pitch
+        yaw, pitch = compute_yaw_and_pitch(eye_direction)
+
+        camera_node.rotation = genearte_camera_quaternion(yaw, pitch)
         camera_node.translation = camera_position
 
         # v = Viewer(scene, shadows=True, viewport_size=(400, 400))
