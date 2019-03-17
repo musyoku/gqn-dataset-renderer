@@ -4,6 +4,8 @@
 
 This is a Python library for constructing a dataset for GQN and CGQN.
 
+At this time, this renderer has two backend implementations available: OpenGL backend and CUDA backend.
+
 # OpenGL
 
 ## Requirements
