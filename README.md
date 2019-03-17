@@ -4,7 +4,9 @@
 
 This is a Python library for constructing a dataset for GQN and CGQN.
 
-At this time, this renderer has two backend implementations available: OpenGL backend and CUDA backend.
+At this time, this renderer has two backend implementations available: **OpenGL** backend and **CUDA** backend.
+
+OpenGL renderer is build on top of a modified version of [pyrender](https://github.com/mmatl/pyrender).
 
 # OpenGL
 
