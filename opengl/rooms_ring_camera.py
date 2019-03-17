@@ -33,7 +33,12 @@ def set_random_texture(node, path, intensity=1.0):
     primitive.material.baseColorTexture.sampler.minFilter = GL_LINEAR_MIPMAP_LINEAR
 
 
-def build_scene(colors, floor_textures, wall_textures, objects):
+def build_scene(colors,
+                floor_textures,
+                wall_textures,
+                objects,
+                max_num_objects=3,
+                discrete_position=False):
     scene = Scene(
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
@@ -103,13 +108,13 @@ def build_scene(colors, floor_textures, wall_textures, objects):
         for x in directions:
             available_positions.append((x, z))
     available_positions = np.array(available_positions)
-    num_objects = random.choice(range(args.max_num_objects)) + 1
+    num_objects = random.choice(range(max_num_objects)) + 1
     indices = np.random.choice(
         np.arange(len(available_positions)), replace=False, size=num_objects)
     for xz in available_positions[indices]:
         node = random.choice(objects)()
         node.mesh.primitives[0].color_0 = random.choice(colors)
-        if args.discrete_position == False:
+        if discrete_position == False:
             xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
         parent = Node(children=[node], translation=np.array([xz[0], 0, xz[1]]))
         scene.add_node(parent)
@@ -128,10 +133,16 @@ def compute_yaw_and_pitch(vec):
     if z < 0:
         yaw = math.pi + math.atan(x / z)
     elif x < 0:
-        yaw = math.pi * 2 + math.atan(x / z)
+        if z == 0:
+            yaw = math.pi * 1.5
+        else:
+            yaw = math.pi * 2 + math.atan(x / z)
+    elif z == 0:
+        yaw = math.pi / 2
     else:
         yaw = math.atan(x / z)
     pitch = -math.asin(y / norm)
+    print(vec, yaw)
     return yaw, pitch
 
 
@@ -192,7 +203,13 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(colors, floor_textures, wall_textures, objects)
+        scene = build_scene(
+            colors,
+            floor_textures,
+            wall_textures,
+            objects,
+            max_num_objects=args.max_num_objects,
+            discrete_position=args.discrete_position)
         camera_distance = 4
         camera = PerspectiveCamera(yfov=math.pi / 4)
         camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
