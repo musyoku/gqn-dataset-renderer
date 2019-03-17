@@ -38,7 +38,7 @@ def build_scene(colors, floor_textures, wall_textures, objects):
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
 
-    floor_trimesh = trimesh.load("objects/floor.obj")
+    floor_trimesh = trimesh.load("../objects/floor.obj")
     mesh = Mesh.from_trimesh(floor_trimesh)
     node = Node(
         mesh=mesh,
@@ -50,7 +50,7 @@ def build_scene(colors, floor_textures, wall_textures, objects):
 
     texture_path = random.choice(wall_textures)
 
-    wall_trimesh = trimesh.load("objects/wall.obj")
+    wall_trimesh = trimesh.load("../objects/wall.obj")
     mesh = Mesh.from_trimesh(wall_trimesh)
     node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
     set_random_texture(node, texture_path)
@@ -111,7 +111,12 @@ def build_scene(colors, floor_textures, wall_textures, objects):
         node.mesh.primitives[0].color_0 = random.choice(colors)
         if args.discrete_position == False:
             xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
-        parent = Node(children=[node], translation=np.array([xz[0], 0, xz[1]]))
+        yaw = np.random.uniform(0, math.pi * 2, size=1)[0]
+        rotation = pyrender.quaternion.from_yaw(yaw)
+        parent = Node(
+            children=[node],
+            rotation=rotation,
+            translation=np.array([xz[0], 0, xz[1]]))
         scene.add_node(parent)
 
     return scene
@@ -159,17 +164,17 @@ def main():
         colors.append(np.array((red, green, blue, 1)))
 
     floor_textures = [
-        "textures/lg_floor_d.tga",
-        "textures/lg_style_01_floor_blue_d.tga",
-        "textures/lg_style_01_floor_orange_bright_d.tga",
+        "../textures/lg_floor_d.tga",
+        "../textures/lg_style_01_floor_blue_d.tga",
+        "../textures/lg_style_01_floor_orange_bright_d.tga",
     ]
 
     wall_textures = [
-        "textures/lg_style_01_wall_cerise_d.tga",
-        "textures/lg_style_01_wall_green_bright_d.tga",
-        "textures/lg_style_01_wall_red_bright_d.tga",
-        "textures/lg_style_02_wall_yellow_d.tga",
-        "textures/lg_style_03_wall_orange_bright_d.tga",
+        "../textures/lg_style_01_wall_cerise_d.tga",
+        "../textures/lg_style_01_wall_green_bright_d.tga",
+        "../textures/lg_style_01_wall_red_bright_d.tga",
+        "../textures/lg_style_02_wall_yellow_d.tga",
+        "../textures/lg_style_03_wall_orange_bright_d.tga",
     ]
 
     objects = [
@@ -207,7 +212,8 @@ def main():
             camera_position = np.array(
                 [rand_position_xz[0], 1, rand_position_xz[1]])
             camera_direction = rand_position_xz - rand_lookat_xz
-            camera_direction = np.array([camera_direction[0], 0, camera_direction[1]])
+            camera_direction = np.array(
+                [camera_direction[0], 0, camera_direction[1]])
             # Compute yaw and pitch
             yaw, pitch = compute_yaw_and_pitch(camera_direction)
 

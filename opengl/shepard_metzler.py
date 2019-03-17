@@ -1,5 +1,5 @@
 import os
-os.environ["PYOPENGL_PLATFORM"] = "osmesa"
+# os.environ["PYOPENGL_PLATFORM"] = "osmesa"
 
 import argparse
 import colorsys
@@ -99,11 +99,11 @@ def generate_block_positions(num_cubes):
     return position_array, center_of_gravity
 
 
-def build_scene(color_candidates):
+def build_scene(num_cubes, color_candidates):
     # Generate positions of each cube
     cube_position_array, center_of_gravity = generate_block_positions(
-        args.num_cubes)
-    assert len(cube_position_array) == args.num_cubes
+        num_cubes)
+    assert len(cube_position_array) == num_cubes
 
     # Place cubes
     scene = Scene(
@@ -139,12 +139,11 @@ def build_scene(color_candidates):
 
 
 def update_cube_color_and_position(cube_nodes, color_candidates):
-    assert len(cube_nodes) == args.num_cubes
+    num_cubes = len(cube_nodes)
 
     # Generate positions of each cube
     cube_position_array, center_of_gravity = generate_block_positions(
-        args.num_cubes)
-    assert len(cube_position_array) == args.num_cubes
+        num_cubes)
 
     for position, node in zip(cube_position_array, cube_nodes):
         color = np.array(random.choice(color_candidates))
@@ -199,7 +198,7 @@ def main():
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
         color_candidates.append((red, green, blue))
 
-    scene, cube_nodes = build_scene(color_candidates)
+    scene, cube_nodes = build_scene(args.num_cubes, color_candidates)
     camera = OrthographicCamera(xmag=0.9, ymag=0.9)
     camera_node = Node(camera=camera)
     scene.add_node(camera_node)

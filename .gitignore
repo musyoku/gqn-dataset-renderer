@@ -12,8 +12,11 @@
 !*.md
 !*.inl
 !*.tga
+!*.obj
+!*.mtl
 !.gitignore
 !makefile
+!placeholder.png
 
 # ignore
 .vscode
