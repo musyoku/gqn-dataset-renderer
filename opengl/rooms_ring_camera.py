@@ -45,7 +45,7 @@ def build_scene(colors,
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
 
     floor_trimesh = trimesh.load("objects/floor.obj")
-    mesh = Mesh.from_trimesh(floor_trimesh)
+    mesh = Mesh.from_trimesh(floor_trimesh, smooth=False)
     node = Node(
         mesh=mesh,
         rotation=pyrender.quaternion.from_pitch(-math.pi / 2),
@@ -57,12 +57,12 @@ def build_scene(colors,
     texture_path = random.choice(wall_textures)
 
     wall_trimesh = trimesh.load("objects/wall.obj")
-    mesh = Mesh.from_trimesh(wall_trimesh)
+    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
     node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
     set_random_texture(node, texture_path)
     scene.add_node(node)
 
-    mesh = Mesh.from_trimesh(wall_trimesh)
+    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
     node = Node(
         mesh=mesh,
         rotation=pyrender.quaternion.from_yaw(math.pi),
@@ -70,7 +70,7 @@ def build_scene(colors,
     set_random_texture(node, texture_path)
     scene.add_node(node)
 
-    mesh = Mesh.from_trimesh(wall_trimesh)
+    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
     node = Node(
         mesh=mesh,
         rotation=pyrender.quaternion.from_yaw(-math.pi / 2),
@@ -78,7 +78,7 @@ def build_scene(colors,
     set_random_texture(node, texture_path)
     scene.add_node(node)
 
-    mesh = Mesh.from_trimesh(wall_trimesh)
+    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
     node = Node(
         mesh=mesh,
         rotation=pyrender.quaternion.from_yaw(math.pi / 2),

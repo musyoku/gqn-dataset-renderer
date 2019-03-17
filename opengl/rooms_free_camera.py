@@ -10,19 +10,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyglet
 import trimesh
-from PIL import Image, ImageEnhance
 from tqdm import tqdm
-
-from OpenGL.GL import GL_LINEAR_MIPMAP_LINEAR
 
 import pyrender
 from archiver import Archiver, SceneData
 from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
-                      PerspectiveCamera, PointLight, RenderFlags, Scene,
-                      Primitive)
-from rooms_ring_camera import (udpate_vertex_buffer, compute_yaw_and_pitch,
+                      PerspectiveCamera, PointLight, Primitive, RenderFlags,
+                      Scene)
+from rooms_ring_camera import (build_scene, compute_yaw_and_pitch,
                                genearte_camera_quaternion, set_random_texture,
-                               build_scene)
+                               udpate_vertex_buffer)
 
 
 def main():
