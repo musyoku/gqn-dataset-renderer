@@ -33,7 +33,7 @@ def set_random_texture(node, path, intensity=1.0):
     primitive.material.baseColorTexture.sampler.minFilter = GL_LINEAR_MIPMAP_LINEAR
 
 
-def build_scene(colors, floor_textures, wall_textures):
+def build_scene(floor_textures, wall_textures):
     scene = Scene(
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
@@ -207,7 +207,7 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(colors, floor_textures, wall_textures)
+        scene = build_scene(floor_textures, wall_textures)
         place_objects(
             scene,
             colors,

@@ -50,10 +50,8 @@ def generate_mnist_texture(mnist_images):
     return texture
 
 
-def place_dice(scene,
-               mnist_images,
-               discrete_position=False,
-               rotate_object=False):
+def place_dice(scene, mnist_images, discrete_position=False,
+               rotate_dice=False):
     dice_trimesh = trimesh.load("objects/dice.obj")
     mesh = Mesh.from_trimesh(dice_trimesh, smooth=False)
     node = Node(
@@ -64,7 +62,27 @@ def place_dice(scene,
     primitive = node.mesh.primitives[0]
     primitive.material.baseColorTexture.source = texture_image
     primitive.material.baseColorTexture.sampler.minFilter = GL_LINEAR_MIPMAP_LINEAR
-    scene.add_node(node)
+
+    directions = [-1.0, 0.0, 1.0]
+    available_positions = []
+    for z in directions:
+        for x in directions:
+            available_positions.append((x, z))
+    xz = random.choice(available_positions)
+
+    if discrete_position == False:
+        xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
+    if rotate_dice:
+        yaw = np.random.uniform(0, math.pi * 2, size=1)[0]
+        rotation = pyrender.quaternion.from_yaw(yaw)
+        parent = Node(
+            children=[node],
+            rotation=rotation,
+            translation=np.array([xz[0], 0, xz[1]]))
+    else:
+        parent = Node(
+            children=[node], translation=np.array([xz[0], 0, xz[1]]))
+    scene.add_node(parent)
 
 
 def main():
@@ -72,15 +90,6 @@ def main():
         os.makedirs(args.output_directory)
     except:
         pass
-
-    # Colors
-    colors = []
-    for n in range(args.num_colors):
-        hue = n / args.num_colors
-        saturation = 1
-        lightness = 1
-        red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
-        colors.append(np.array((red, green, blue, 1)))
 
     # Load MNIST images
     mnist_images = load_mnist_images()
@@ -119,12 +128,13 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(colors, floor_textures, wall_textures)
+        scene = build_scene(floor_textures, wall_textures)
         place_dice(
             scene,
             mnist_images,
             discrete_position=args.discrete_position,
-            rotate_object=args.rotate_object)
+            rotate_dice=args.rotate_dice)
+
         camera_distance = 4
         camera = PerspectiveCamera(yfov=math.pi / 4)
         camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
@@ -135,6 +145,7 @@ def main():
             rand_position_xz = np.random.normal(size=2)
             rand_position_xz = camera_distance * rand_position_xz / np.linalg.norm(
                 rand_position_xz)
+
             # Compute yaw and pitch
             camera_direction = np.array(
                 [rand_position_xz[0], 0, rand_position_xz[1]])
@@ -170,13 +181,11 @@ if __name__ == "__main__":
     parser.add_argument("--initial-file-number", type=int, default=1)
     parser.add_argument("--num-observations-per-scene", type=int, default=10)
     parser.add_argument("--image-size", type=int, default=64)
-    parser.add_argument("--max-num-objects", type=int, default=3)
-    parser.add_argument("--num-colors", type=int, default=10)
     parser.add_argument("--output-directory", type=str, required=True)
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument(
         "--discrete-position", default=False, action="store_true")
-    parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument("--rotate-dice", default=False, action="store_true")
     parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()
