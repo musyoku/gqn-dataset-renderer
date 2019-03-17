@@ -69,7 +69,7 @@ def main():
 
     ani = animation.ArtistAnimation(
         fig, ims, interval=1 / 24, blit=True, repeat_delay=0)
-    ani.save('shepard_matzler.gif', writer="imagemagick")
+    ani.save("shepard_matzler.gif", writer="imagemagick")
 
 
 if __name__ == "__main__":

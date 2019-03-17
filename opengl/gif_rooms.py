@@ -14,11 +14,15 @@ from PIL import Image
 import pyrender
 from pyrender import (RenderFlags, PerspectiveCamera, OrthographicCamera,
                       OffscreenRenderer, Node)
-from rooms_ring_camera import (build_scene, compute_yaw_and_pitch,
+from rooms_ring_camera import (build_scene, place_objects,
+                               compute_yaw_and_pitch,
                                genearte_camera_quaternion)
 
 
 def main():
+    random.seed(1)
+    np.random.seed(1)
+
     # Colors
     colors = []
     for n in range(args.num_colors):
@@ -59,8 +63,17 @@ def main():
     axis_orthogonal = fig.add_subplot(1, 2, 2)
     ims = []
 
-    scene = build_scene(colors, floor_textures, wall_textures, objects)
-    camera_distance = 4
+    scene = build_scene(floor_textures, wall_textures)
+    place_objects(
+        scene,
+        colors,
+        objects,
+        min_num_objects=args.num_objects,
+        max_num_objects=args.num_objects,
+        discrete_position=args.discrete_position,
+        rotate_object=args.rotate_object)
+
+    camera_distance = 5
     perspective_camera = PerspectiveCamera(yfov=math.pi / 4)
     perspective_camera_node = Node(
         camera=perspective_camera, translation=np.array([0, 1, 1]))
@@ -119,7 +132,13 @@ def main():
 
     ani = animation.ArtistAnimation(
         fig, ims, interval=1 / 24, blit=True, repeat_delay=0)
-    ani.save('rooms.gif', writer="imagemagick")
+    filename = "rooms"
+    if args.discrete_position:
+        filename += "_discrete_position"
+    if args.rotate_object:
+        filename += "_rotate_object"
+    filename += ".gif"
+    ani.save(filename, writer="imagemagick")
 
 
 if __name__ == "__main__":
@@ -127,7 +146,10 @@ if __name__ == "__main__":
     parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-objects", "-objects", type=int, default=3)
-    parser.add_argument("--num-colors", "-colors", type=int, default=12)
+    parser.add_argument("--num-colors", "-colors", type=int, default=6)
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
+    parser.add_argument(
+        "--discrete-position", default=False, action="store_true")
+    parser.add_argument("--rotate-object", default=False, action="store_true")
     args = parser.parse_args()
     main()

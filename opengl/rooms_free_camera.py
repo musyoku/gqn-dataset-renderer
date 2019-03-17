@@ -127,7 +127,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-observations-per-scene", type=int, default=10)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--max-num-objects", type=int, default=3)
-    parser.add_argument("--num-colors", type=int, default=10)
+    parser.add_argument("--num-colors", type=int, default=6)
     parser.add_argument("--output-directory", type=str, required=True)
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument(

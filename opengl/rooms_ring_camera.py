@@ -97,23 +97,24 @@ def place_objects(scene,
                   colors,
                   objects,
                   max_num_objects=3,
+                  min_num_objects=1,
                   discrete_position=False,
                   rotate_object=False):
     # Place objects
-    directions = [-1.0, 0.0, 1.0]
+    directions = [-1.5, 0.0, 1.5]
     available_positions = []
     for z in directions:
         for x in directions:
             available_positions.append((x, z))
     available_positions = np.array(available_positions)
-    num_objects = random.choice(range(max_num_objects)) + 1
+    num_objects = random.choice(range(min_num_objects, max_num_objects + 1))
     indices = np.random.choice(
         np.arange(len(available_positions)), replace=False, size=num_objects)
     for xz in available_positions[indices]:
         node = random.choice(objects)()
         node.mesh.primitives[0].color_0 = random.choice(colors)
         if discrete_position == False:
-            xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
+            xz += np.random.uniform(-0.3, 0.3, size=xz.shape)
         if rotate_object:
             yaw = np.random.uniform(0, math.pi * 2, size=1)[0]
             rotation = pyrender.quaternion.from_yaw(yaw)
@@ -261,7 +262,7 @@ if __name__ == "__main__":
     parser.add_argument("--num-observations-per-scene", type=int, default=10)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--max-num-objects", type=int, default=3)
-    parser.add_argument("--num-colors", type=int, default=10)
+    parser.add_argument("--num-colors", type=int, default=6)
     parser.add_argument("--output-directory", type=str, required=True)
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument(
