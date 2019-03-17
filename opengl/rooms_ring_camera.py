@@ -38,7 +38,8 @@ def build_scene(colors,
                 wall_textures,
                 objects,
                 max_num_objects=3,
-                discrete_position=False):
+                discrete_position=False,
+                rotate_object=False):
     scene = Scene(
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
@@ -116,7 +117,16 @@ def build_scene(colors,
         node.mesh.primitives[0].color_0 = random.choice(colors)
         if discrete_position == False:
             xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
-        parent = Node(children=[node], translation=np.array([xz[0], 0, xz[1]]))
+        if rotate_object:
+            yaw = np.random.uniform(0, math.pi * 2, size=1)[0]
+            rotation = pyrender.quaternion.from_yaw(yaw)
+            parent = Node(
+                children=[node],
+                rotation=rotation,
+                translation=np.array([xz[0], 0, xz[1]]))
+        else:
+            parent = Node(
+                children=[node], translation=np.array([xz[0], 0, xz[1]]))
         scene.add_node(parent)
 
     return scene
@@ -208,7 +218,8 @@ def main():
             wall_textures,
             objects,
             max_num_objects=args.max_num_objects,
-            discrete_position=args.discrete_position)
+            discrete_position=args.discrete_position,
+            rotate_object=args.rotate_object)
         camera_distance = 4
         camera = PerspectiveCamera(yfov=math.pi / 4)
         camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
@@ -237,9 +248,10 @@ def main():
             scene_data.add(image, camera_position, math.cos(yaw),
                            math.sin(yaw), math.cos(pitch), math.sin(pitch))
 
-            # plt.clf()
-            # plt.imshow(image)
-            # plt.pause(0.1)
+            if args.visualize:
+                plt.clf()
+                plt.imshow(image)
+                plt.pause(1e-10)
 
         archiver.add(scene_data)
 
@@ -259,5 +271,7 @@ if __name__ == "__main__":
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument(
         "--discrete-position", default=False, action="store_true")
+    parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()
