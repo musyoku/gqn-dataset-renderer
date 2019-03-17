@@ -43,7 +43,7 @@ def build_scene(colors,
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
 
-    floor_trimesh = trimesh.load("../objects/floor.obj")
+    floor_trimesh = trimesh.load("objects/floor.obj")
     mesh = Mesh.from_trimesh(floor_trimesh)
     node = Node(
         mesh=mesh,
@@ -55,7 +55,7 @@ def build_scene(colors,
 
     texture_path = random.choice(wall_textures)
 
-    wall_trimesh = trimesh.load("../objects/wall.obj")
+    wall_trimesh = trimesh.load("objects/wall.obj")
     mesh = Mesh.from_trimesh(wall_trimesh)
     node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
     set_random_texture(node, texture_path)
