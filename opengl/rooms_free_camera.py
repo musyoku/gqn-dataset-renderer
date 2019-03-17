@@ -17,9 +17,9 @@ from archiver import Archiver, SceneData
 from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       PerspectiveCamera, PointLight, Primitive, RenderFlags,
                       Scene)
-from rooms_ring_camera import (build_scene, compute_yaw_and_pitch,
-                               genearte_camera_quaternion, set_random_texture,
-                               udpate_vertex_buffer)
+from rooms_ring_camera import (
+    build_scene, place_objects, compute_yaw_and_pitch,
+    genearte_camera_quaternion, set_random_texture, udpate_vertex_buffer)
 
 
 def main():
@@ -71,10 +71,10 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(
+        scene = build_scene(colors, floor_textures, wall_textures)
+        place_objects(
+            scene,
             colors,
-            floor_textures,
-            wall_textures,
             objects,
             max_num_objects=args.max_num_objects,
             discrete_position=args.discrete_position,

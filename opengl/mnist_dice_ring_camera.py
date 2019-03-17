@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyglet
 import trimesh
-from OpenGL.GL import GL_LINEAR_MIPMAP_LINEAR, GL_NEAREST
+from OpenGL.GL import GL_LINEAR_MIPMAP_LINEAR
 from PIL import Image
 from tqdm import tqdm
 
@@ -21,7 +21,7 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       Scene)
 from rooms_ring_camera import (compute_yaw_and_pitch,
                                genearte_camera_quaternion, set_random_texture,
-                               udpate_vertex_buffer)
+                               udpate_vertex_buffer, build_scene)
 
 
 def load_mnist_images():
@@ -50,77 +50,10 @@ def generate_mnist_texture(mnist_images):
     return texture
 
 
-def build_scene(colors,
-                floor_textures,
-                wall_textures,
-                objects,
-                mnist_images,
-                max_num_objects=3,
-                discrete_position=False,
-                rotate_object=False):
-    scene = Scene(
-        bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
-        ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
-
-    floor_trimesh = trimesh.load("objects/floor.obj")
-    mesh = Mesh.from_trimesh(floor_trimesh, smooth=False)
-    node = Node(
-        mesh=mesh,
-        rotation=pyrender.quaternion.from_pitch(-math.pi / 2),
-        translation=np.array([0, 0, 0]))
-    texture_path = random.choice(floor_textures)
-    set_random_texture(node, texture_path, intensity=0.8)
-    scene.add_node(node)
-
-    texture_path = random.choice(wall_textures)
-
-    wall_trimesh = trimesh.load("objects/wall.obj")
-    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
-    node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
-    set_random_texture(node, texture_path)
-    scene.add_node(node)
-
-    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
-    node = Node(
-        mesh=mesh,
-        rotation=pyrender.quaternion.from_yaw(math.pi),
-        translation=np.array([0, 1.15, 3.5]))
-    set_random_texture(node, texture_path)
-    scene.add_node(node)
-
-    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
-    node = Node(
-        mesh=mesh,
-        rotation=pyrender.quaternion.from_yaw(-math.pi / 2),
-        translation=np.array([3.5, 1.15, 0]))
-    set_random_texture(node, texture_path)
-    scene.add_node(node)
-
-    mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
-    node = Node(
-        mesh=mesh,
-        rotation=pyrender.quaternion.from_yaw(math.pi / 2),
-        translation=np.array([-3.5, 1.15, 0]))
-    set_random_texture(node, texture_path)
-    scene.add_node(node)
-
-    # light = PointLight(color=np.ones(3), intensity=200.0)
-    # node = Node(
-    #     light=light,
-    #     translation=np.array([0, 5, 5]))
-    # scene.add_node(node)
-
-    light = DirectionalLight(color=np.ones(3), intensity=10)
-    position = np.array([0, 1, 1])
-    position = position / np.linalg.norm(position)
-    yaw, pitch = compute_yaw_and_pitch(position)
-    node = Node(
-        light=light,
-        rotation=genearte_camera_quaternion(yaw, pitch),
-        translation=np.array([0, 1, 1]))
-    scene.add_node(node)
-
-    # Place a dice
+def place_dice(scene,
+               mnist_images,
+               discrete_position=False,
+               rotate_object=False):
     dice_trimesh = trimesh.load("objects/dice.obj")
     mesh = Mesh.from_trimesh(dice_trimesh, smooth=False)
     node = Node(
@@ -132,8 +65,6 @@ def build_scene(colors,
     primitive.material.baseColorTexture.source = texture_image
     primitive.material.baseColorTexture.sampler.minFilter = GL_LINEAR_MIPMAP_LINEAR
     scene.add_node(node)
-
-    return scene
 
 
 def main():
@@ -188,13 +119,10 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(
-            colors,
-            floor_textures,
-            wall_textures,
-            objects,
+        scene = build_scene(colors, floor_textures, wall_textures)
+        place_dice(
+            scene,
             mnist_images,
-            max_num_objects=args.max_num_objects,
             discrete_position=args.discrete_position,
             rotate_object=args.rotate_object)
         camera_distance = 4

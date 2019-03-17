@@ -33,13 +33,7 @@ def set_random_texture(node, path, intensity=1.0):
     primitive.material.baseColorTexture.sampler.minFilter = GL_LINEAR_MIPMAP_LINEAR
 
 
-def build_scene(colors,
-                floor_textures,
-                wall_textures,
-                objects,
-                max_num_objects=3,
-                discrete_position=False,
-                rotate_object=False):
+def build_scene(colors, floor_textures, wall_textures):
     scene = Scene(
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
@@ -86,12 +80,6 @@ def build_scene(colors,
     set_random_texture(node, texture_path)
     scene.add_node(node)
 
-    # light = PointLight(color=np.ones(3), intensity=200.0)
-    # node = Node(
-    #     light=light,
-    #     translation=np.array([0, 5, 5]))
-    # scene.add_node(node)
-
     light = DirectionalLight(color=np.ones(3), intensity=10)
     position = np.array([0, 1, 1])
     position = position / np.linalg.norm(position)
@@ -102,6 +90,15 @@ def build_scene(colors,
         translation=np.array([0, 1, 1]))
     scene.add_node(node)
 
+    return scene
+
+
+def place_objects(scene,
+                  colors,
+                  objects,
+                  max_num_objects=3,
+                  discrete_position=False,
+                  rotate_object=False):
     # Place objects
     directions = [-1.0, 0.0, 1.0]
     available_positions = []
@@ -128,8 +125,6 @@ def build_scene(colors,
             parent = Node(
                 children=[node], translation=np.array([xz[0], 0, xz[1]]))
         scene.add_node(parent)
-
-    return scene
 
 
 def udpate_vertex_buffer(cube_nodes):
@@ -212,10 +207,10 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(
+        scene = build_scene(colors, floor_textures, wall_textures)
+        place_objects(
+            scene,
             colors,
-            floor_textures,
-            wall_textures,
             objects,
             max_num_objects=args.max_num_objects,
             discrete_position=args.discrete_position,
