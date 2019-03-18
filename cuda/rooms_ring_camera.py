@@ -13,6 +13,9 @@ from PIL import Image
 from archiver import Archiver, SceneData
 import rtx
 
+floor_size = 7
+wall_height = floor_size / 3
+
 
 class GeometryType:
     box = 1
@@ -36,7 +39,7 @@ def load_texture_image(filename):
     return texture
 
 
-def build_mapping(texture, wall_aspect_ratio=1.0, scale=1.0):
+def generate_texture_mapping(texture, wall_aspect_ratio=1.0, scale=1.0):
     aspect_ratio = texture.shape[1] / texture.shape[0]
     uv_coordinates = np.array(
         [
@@ -50,84 +53,92 @@ def build_mapping(texture, wall_aspect_ratio=1.0, scale=1.0):
     return mapping
 
 
-def build_geometry_by_type(geometry_type):
+def create_geometry_by_type(geometry_type):
     if geometry_type == GeometryType.box:
-        return rtx.BoxGeometry(width=1, height=1, depth=1)
+        return rtx.BoxGeometry(width=0.75, height=0.75, depth=0.75), 0.375
 
     if geometry_type == GeometryType.shpere:
-        return rtx.SphereGeometry(radius=0.5)
+        return rtx.SphereGeometry(radius=0.375), 0.375
 
     if geometry_type == GeometryType.cylinder:
-        return rtx.CylinderGeometry(radius=0.5, height=1)
+        return rtx.CylinderGeometry(radius=0.25, height=1), 0.5
 
     if geometry_type == GeometryType.cone:
-        return rtx.ConeGeometry(radius=0.5, height=1)
+        return rtx.ConeGeometry(radius=0.375, height=1), 0.375
 
     raise NotImplementedError
 
 
-def generate_object_positions(num_objects, grid_size):
-    available_positions = []
-    for y in range(grid_size):
-        for x in range(grid_size):
-            available_positions.append((x, y))
-    ret = random.sample(available_positions, num_objects)
-    return ret
+def compute_yaw_and_pitch(vec):
+    x, y, z = vec
+    norm = np.linalg.norm(vec)
+    if z < 0:
+        yaw = math.pi + math.atan(x / z)
+    elif x < 0:
+        if z == 0:
+            yaw = math.pi * 1.5
+        else:
+            yaw = math.pi * 2 + math.atan(x / z)
+    elif z == 0:
+        yaw = math.pi / 2
+    else:
+        yaw = math.atan(x / z)
+    pitch = -math.asin(y / norm)
+    return yaw, pitch
 
 
-def build_scene(color_array, wall_texture_filename_array,
-                floor_texture_filename_array, grid_size, wall_height):
-    scene = rtx.Scene(ambient_color=(0.5, 1, 1))
+def build_scene(floor_textures, wall_textures, fix_light_position=False):
+    scene = rtx.Scene(ambient_color=(153 / 255, 226 / 255, 249 / 255))
 
-    texture = load_texture_image(random.choice(wall_texture_filename_array))
-    mapping = build_mapping(texture, grid_size / wall_height)
+    texture = load_texture_image(random.choice(wall_textures))
+    mapping = generate_texture_mapping(texture, floor_size / wall_height)
 
     # Place walls
     ## 1
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
+    geometry = rtx.PlainGeometry(floor_size, wall_height)
     geometry.set_rotation((0, 0, 0))
-    geometry.set_position((0, 0, -grid_size / 2))
+    geometry.set_position((0, wall_height / 2, -floor_size / 2))
     material = rtx.LambertMaterial(0.95)
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
     ## 2
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
+    geometry = rtx.PlainGeometry(floor_size, wall_height)
     geometry.set_rotation((0, -math.pi / 2, 0))
-    geometry.set_position((grid_size / 2, 0, 0))
+    geometry.set_position((floor_size / 2, wall_height / 2, 0))
     material = rtx.LambertMaterial(0.95)
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
     ## 3
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
+    geometry = rtx.PlainGeometry(floor_size, wall_height)
     geometry.set_rotation((0, math.pi, 0))
-    geometry.set_position((0, 0, grid_size / 2))
+    geometry.set_position((0, wall_height / 2, floor_size / 2))
     material = rtx.LambertMaterial(0.95)
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
     ## 4
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
+    geometry = rtx.PlainGeometry(floor_size, wall_height)
     geometry.set_rotation((0, math.pi / 2, 0))
-    geometry.set_position((-grid_size / 2, 0, 0))
+    geometry.set_position((-floor_size / 2, wall_height / 2, 0))
     material = rtx.LambertMaterial(0.95)
     wall = rtx.Object(geometry, material, mapping)
     scene.add(wall)
 
     # floor
-    geometry = rtx.PlainGeometry(grid_size, grid_size)
+    geometry = rtx.PlainGeometry(floor_size, floor_size)
     geometry.set_rotation((-math.pi / 2, 0, 0))
-    geometry.set_position((0, -wall_height / 2, 0))
+    geometry.set_position((0, 0, 0))
     material = rtx.LambertMaterial(0.95)
-    texture = load_texture_image(random.choice(floor_texture_filename_array))
-    mapping = build_mapping(texture, scale=0.5)
+    texture = load_texture_image(random.choice(floor_textures))
+    mapping = generate_texture_mapping(texture, scale=0.5)
     floor = rtx.Object(geometry, material, mapping)
     scene.add(floor)
 
     # Place a light
     geometry = rtx.SphereGeometry(2)
-    spread = grid_size / 2 - 1
+    spread = floor_size / 2 - 1
     geometry.set_position((spread * random.uniform(-1, 1), 8,
                            spread * random.uniform(-1, 1)))
     material = rtx.EmissiveMaterial(20, visible=False)
@@ -135,28 +146,43 @@ def build_scene(color_array, wall_texture_filename_array,
     light = rtx.Object(geometry, material, mapping)
     scene.add(light)
 
-    # Place objects
-    r = grid_size // 4
-    r2 = r * 2
-    object_positions = generate_object_positions(args.num_objects, r2 - 1)
-    for position_index in object_positions:
-        geometry_type = random.choice(geometry_type_array)
-        geometry = build_geometry_by_type(geometry_type)
-        geometry.set_rotation((0, random.uniform(0, math.pi * 2), 0))
+    return scene
 
-        noise = np.random.uniform(-0.125, 0.125, size=2)
-        spread = 1.5
+
+def place_objects(scene,
+                  colors,
+                  max_num_objects=3,
+                  min_num_objects=1,
+                  discrete_position=False,
+                  rotate_object=False):
+    # Place objects
+    directions = [-1.5, 0.0, 1.5]
+    available_positions = []
+    for z in directions:
+        for x in directions:
+            available_positions.append((x, z))
+    available_positions = np.array(available_positions)
+    num_objects = random.choice(range(min_num_objects, max_num_objects + 1))
+    indices = np.random.choice(
+        np.arange(len(available_positions)), replace=False, size=num_objects)
+    for xz in available_positions[indices]:
+        geometry_type = random.choice(geometry_type_array)
+        geometry, offset_y = create_geometry_by_type(geometry_type)
+        if rotate_object:
+            geometry.set_rotation((0, random.uniform(0, math.pi * 2), 0))
+        if discrete_position == False:
+            xz += np.random.uniform(-0.3, 0.3, size=xz.shape)
+
         geometry.set_position((
-            spread * (position_index[0] - r + 1) + noise[0],
-            -wall_height / 2 + 0.5,
-            spread * (position_index[1] - r + 1) + noise[1],
+            xz[0],
+            offset_y,
+            xz[1],
         ))
         material = rtx.LambertMaterial(0.9)
-        color = random.choice(color_array)
+        color = random.choice(colors)
         mapping = rtx.SolidColorMapping(color)
         obj = rtx.Object(geometry, material, mapping)
         scene.add(obj)
-    return scene
 
 
 def main():
@@ -164,39 +190,37 @@ def main():
     rtx.set_device(args.gpu_device)
 
     # Textures
-    wall_texture_filename_array = [
-        "textures/lg_style_01_wall_cerise_d.tga",
-        "textures/lg_style_01_wall_green_bright_d.tga",
-        "textures/lg_style_01_wall_red_bright_d.tga",
-        "textures/lg_style_02_wall_yellow_d.tga",
-        "textures/lg_style_03_wall_orange_bright_d.tga",
+    floor_textures = [
+        "../textures/lg_floor_d.tga",
+        "../textures/lg_style_01_floor_blue_d.tga",
+        "../textures/lg_style_01_floor_orange_bright_d.tga",
     ]
-    floor_texture_filename_array = [
-        "textures/lg_floor_d.tga",
-        "textures/lg_style_01_floor_blue_d.tga",
-        "textures/lg_style_01_floor_orange_bright_d.tga",
+
+    wall_textures = [
+        "../textures/lg_style_01_wall_cerise_d.tga",
+        "../textures/lg_style_01_wall_green_bright_d.tga",
+        "../textures/lg_style_01_wall_red_bright_d.tga",
+        "../textures/lg_style_02_wall_yellow_d.tga",
+        "../textures/lg_style_03_wall_orange_bright_d.tga",
     ]
 
     # Initialize colors
-    color_array = []
+    colors = []
     for n in range(args.num_colors):
         hue = n / (args.num_colors - 1)
         saturation = 1
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
-        color_array.append((red, green, blue, 1))
+        colors.append((red, green, blue, 1))
 
     screen_width = args.image_size
     screen_height = args.image_size
-
-    grid_size = 8
-    wall_height = grid_size / 3
 
     # Setting up a raytracer
     rt_args = rtx.RayTracingArguments()
     rt_args.num_rays_per_pixel = 1024
     rt_args.max_bounce = 3
-    rt_args.supersampling_enabled = True
+    rt_args.supersampling_enabled = args.anti_aliasing
     rt_args.next_event_estimation_enabled = True
     rt_args.ambient_light_intensity = 0.1
 
@@ -218,21 +242,33 @@ def main():
 
     camera = rtx.PerspectiveCamera(
         fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
+    camera_distance = 2
 
-    for _ in tqdm(range(args.total_observations)):
-        scene = build_scene(color_array, wall_texture_filename_array,
-                            floor_texture_filename_array, grid_size,
-                            wall_height)
+    for _ in tqdm(range(args.total_scenes)):
+        scene = build_scene(
+            floor_textures,
+            wall_textures,
+            fix_light_position=args.fix_light_position)
+        place_objects(
+            scene,
+            colors,
+            max_num_objects=args.max_num_objects,
+            discrete_position=args.discrete_position,
+            rotate_object=args.rotate_object)
         scene_data = SceneData((args.image_size, args.image_size),
-                                            args.num_views_per_scene)
-
-        for _ in range(args.num_views_per_scene):
-            rotation = random.uniform(0, math.pi * 2)
-            radius = grid_size - 5
-            eye = (radius * math.cos(rotation), -0.125,
-                   radius * math.sin(rotation))
-            center = (0, -0.125, 0)
-            camera.look_at(eye, center, up=(0, 1, 0))
+                               args.num_observations_per_scene)
+        for _ in range(args.num_observations_per_scene):
+            rand_position_xz = np.random.normal(size=2)
+            rand_position_xz = camera_distance * rand_position_xz / np.linalg.norm(
+                rand_position_xz)
+            # Compute yaw and pitch
+            camera_direction = np.array(
+                [rand_position_xz[0], 0, rand_position_xz[1]])
+            yaw, pitch = compute_yaw_and_pitch(camera_direction)
+            camera_position = (rand_position_xz[0], wall_height / 2,
+                               rand_position_xz[1])
+            center = (0, wall_height / 2, 0)
+            camera.look_at(camera_position, center, up=(0, 1, 0))
 
             renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
 
@@ -241,10 +277,8 @@ def main():
             image = np.uint8(image * 255)
             image = cv2.bilateralFilter(image, 3, 25, 25)
 
-            yaw = gqn.math.yaw(eye, center)
-            pitch = gqn.math.pitch(eye, center)
-            scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
-                           math.cos(pitch), math.sin(pitch))
+            scene_data.add(image, camera_position, math.cos(yaw),
+                           math.sin(yaw), math.cos(pitch), math.sin(pitch))
 
             if args.visualize:
                 plt.clf()
@@ -269,6 +303,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--discrete-position", default=False, action="store_true")
     parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument(
+        "--fix-light-position", default=False, action="store_true")
     parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()

@@ -22,11 +22,8 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       Primitive)
 
 
-def set_random_texture(node, path, intensity=1.0):
+def set_random_texture(node, path):
     texture_image = Image.open(path).convert("RGB")
-    if intensity < 1.0:
-        enhancer = ImageEnhance.Brightness(texture_image)
-        texture_image = enhancer.enhance(intensity)
     primitive = node.mesh.primitives[0]
     assert isinstance(primitive, Primitive)
     primitive.material.baseColorTexture.source = texture_image
@@ -45,7 +42,7 @@ def build_scene(floor_textures, wall_textures, fix_light_position=False):
         rotation=pyrender.quaternion.from_pitch(-math.pi / 2),
         translation=np.array([0, 0, 0]))
     texture_path = random.choice(floor_textures)
-    set_random_texture(node, texture_path, intensity=0.8)
+    set_random_texture(node, texture_path)
     scene.add_node(node)
 
     texture_path = random.choice(wall_textures)
@@ -80,16 +77,13 @@ def build_scene(floor_textures, wall_textures, fix_light_position=False):
     set_random_texture(node, texture_path)
     scene.add_node(node)
 
-    light = DirectionalLight(color=np.ones(3), intensity=10)
-    position = np.array([0, 1, 1])
-    position = position / np.linalg.norm(position)
-    yaw, pitch = compute_yaw_and_pitch(position)
-    if fix_light_position:
-        translation = np.array([0, 1, 1])
+    light = DirectionalLight(color=np.ones(3), intensity=15)
+    if fix_light_position == True:
+        translation = np.array([1, 1, 1])
     else:
-        translation = np.array(
-            [np.random.uniform(-1, 1), 1,
-             np.random.uniform(-1, 1)])
+        xz = np.random.uniform(-1, 1, size=2)
+        translation = np.array([xz[0], 1, xz[1]])
+    yaw, pitch = compute_yaw_and_pitch(translation)
     node = Node(
         light=light,
         rotation=genearte_camera_quaternion(yaw, pitch),
@@ -214,7 +208,10 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(floor_textures, wall_textures)
+        scene = build_scene(
+            floor_textures,
+            wall_textures,
+            fix_light_position=args.fix_light_position)
         place_objects(
             scene,
             colors,

@@ -71,7 +71,10 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(floor_textures, wall_textures)
+        scene = build_scene(
+            floor_textures,
+            wall_textures,
+            fix_light_position=args.fix_light_position)
         place_objects(
             scene,
             colors,

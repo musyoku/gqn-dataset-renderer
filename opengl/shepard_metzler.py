@@ -261,9 +261,5 @@ if __name__ == "__main__":
     parser.add_argument("--output-directory", type=str, required=True)
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument("--visualize", default=False, action="store_true")
-    parser.add_argument("--backend-egl", default=False, action="store_true")
     args = parser.parse_args()
-
-    if args.backend_egl:
-        os.environ["PYOPENGL_PLATFORM"] = "egl"
     main()

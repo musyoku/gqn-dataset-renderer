@@ -63,7 +63,10 @@ def main():
     axis_orthogonal = fig.add_subplot(1, 2, 2)
     ims = []
 
-    scene = build_scene(floor_textures, wall_textures)
+    scene = build_scene(
+        floor_textures,
+        wall_textures,
+        fix_light_position=args.fix_light_position)
     place_objects(
         scene,
         colors,
@@ -125,7 +128,7 @@ def main():
             image, interpolation="none", animated=True)
         ims.append([im1, im2])
 
-        # plt.pause(1e-8)
+        plt.pause(1e-8)
 
         current_rad += rad_step
         scene.remove_node(orthographic_camera_node)
@@ -151,5 +154,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--discrete-position", default=False, action="store_true")
     parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument(
+        "--fix-light-position", default=False, action="store_true")
     args = parser.parse_args()
     main()
