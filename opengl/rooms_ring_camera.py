@@ -33,7 +33,7 @@ def set_random_texture(node, path, intensity=1.0):
     primitive.material.baseColorTexture.sampler.minFilter = GL_LINEAR_MIPMAP_LINEAR
 
 
-def build_scene(floor_textures, wall_textures):
+def build_scene(floor_textures, wall_textures, fix_light_position=False):
     scene = Scene(
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
@@ -84,10 +84,16 @@ def build_scene(floor_textures, wall_textures):
     position = np.array([0, 1, 1])
     position = position / np.linalg.norm(position)
     yaw, pitch = compute_yaw_and_pitch(position)
+    if fix_light_position:
+        translation = np.array([0, 1, 1])
+    else:
+        translation = np.array(
+            [np.random.uniform(-1, 1), 1,
+             np.random.uniform(-1, 1)])
     node = Node(
         light=light,
         rotation=genearte_camera_quaternion(yaw, pitch),
-        translation=np.array([0, 1, 1]))
+        translation=translation)
     scene.add_node(node)
 
     return scene
@@ -268,6 +274,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--discrete-position", default=False, action="store_true")
     parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument(
+        "--fix-light-position", default=False, action="store_true")
     parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()

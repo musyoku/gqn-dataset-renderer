@@ -1,15 +1,13 @@
-import os
-# os.environ["PYOPENGL_PLATFORM"] = "osmesa"
-
 import argparse
 import colorsys
 import math
+import os
 import random
 import time
 
-import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 import pyglet
 import trimesh
 from tqdm import tqdm
@@ -101,8 +99,7 @@ def generate_block_positions(num_cubes):
 
 def build_scene(num_cubes, color_candidates):
     # Generate positions of each cube
-    cube_position_array, barycenter = generate_block_positions(
-        num_cubes)
+    cube_position_array, barycenter = generate_block_positions(num_cubes)
     assert len(cube_position_array) == num_cubes
 
     # Place cubes
@@ -142,8 +139,7 @@ def update_cube_color_and_position(cube_nodes, color_candidates):
     num_cubes = len(cube_nodes)
 
     # Generate positions of each cube
-    cube_position_array, barycenter = generate_block_positions(
-        num_cubes)
+    cube_position_array, barycenter = generate_block_positions(num_cubes)
 
     for position, node in zip(cube_position_array, cube_nodes):
         color = np.array(random.choice(color_candidates))
@@ -265,5 +261,9 @@ if __name__ == "__main__":
     parser.add_argument("--output-directory", type=str, required=True)
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument("--visualize", default=False, action="store_true")
+    parser.add_argument("--backend-egl", default=False, action="store_true")
     args = parser.parse_args()
+
+    if args.backend_egl:
+        os.environ["PYOPENGL_PLATFORM"] = "egl"
     main()

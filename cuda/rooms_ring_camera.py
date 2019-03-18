@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-import gqn
+from archiver import Archiver, SceneData
 import rtx
 
 
@@ -129,7 +129,7 @@ def build_scene(color_array, wall_texture_filename_array,
     geometry = rtx.SphereGeometry(2)
     spread = grid_size / 2 - 1
     geometry.set_position((spread * random.uniform(-1, 1), 8,
-                                spread * random.uniform(-1, 1)))
+                           spread * random.uniform(-1, 1)))
     material = rtx.EmissiveMaterial(20, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
@@ -198,7 +198,7 @@ def main():
     rt_args.max_bounce = 3
     rt_args.supersampling_enabled = True
     rt_args.next_event_estimation_enabled = True
-    rt_args.ambient_light_intensity = 0.2
+    rt_args.ambient_light_intensity = 0.1
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
@@ -208,13 +208,12 @@ def main():
     render_buffer = np.zeros(
         (screen_height, screen_width, 3), dtype=np.float32)
 
-    dataset = gqn.archiver.Archiver(
+    archiver = Archiver(
         directory=args.output_directory,
-        total_observations=args.total_observations,
-        num_observations_per_file=min(args.num_observations_per_file,
-                                      args.total_observations),
+        total_scenes=args.total_scenes,
+        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
         image_size=(args.image_size, args.image_size),
-        num_views_per_scene=args.num_views_per_scene,
+        num_observations_per_scene=args.num_observations_per_scene,
         initial_file_number=args.initial_file_number)
 
     camera = rtx.PerspectiveCamera(
@@ -224,7 +223,7 @@ def main():
         scene = build_scene(color_array, wall_texture_filename_array,
                             floor_texture_filename_array, grid_size,
                             wall_height)
-        scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
+        scene_data = SceneData((args.image_size, args.image_size),
                                             args.num_views_per_scene)
 
         for _ in range(args.num_views_per_scene):
@@ -247,28 +246,29 @@ def main():
             scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
                            math.cos(pitch), math.sin(pitch))
 
-            # plt.imshow(image, interpolation="none")
-            # plt.pause(1e-8)
+            if args.visualize:
+                plt.clf()
+                plt.imshow(image)
+                plt.pause(1e-10)
 
-        dataset.add(scene_data)
+        archiver.add(scene_data)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
-    parser.add_argument(
-        "--total-observations", "-total", type=int, default=2000000)
-    parser.add_argument(
-        "--num-observations-per-file", "-per-file", type=int, default=2000)
-    parser.add_argument("--initial-file-number", "-f", type=int, default=1)
-    parser.add_argument("--num-views-per-scene", "-k", type=int, default=5)
+    parser.add_argument("--total-scenes", "-total", type=int, default=2000000)
+    parser.add_argument("--num-scenes-per-file", type=int, default=2000)
+    parser.add_argument("--initial-file-number", type=int, default=1)
+    parser.add_argument("--num-observations-per-scene", type=int, default=10)
     parser.add_argument("--image-size", type=int, default=64)
-    parser.add_argument("--num-objects", "-objects", type=int, default=3)
-    parser.add_argument("--num-colors", "-colors", type=int, default=12)
+    parser.add_argument("--max-num-objects", type=int, default=3)
+    parser.add_argument("--num-colors", type=int, default=6)
+    parser.add_argument("--output-directory", type=str, required=True)
+    parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument(
-        "--output-directory",
-        "-out",
-        type=str,
-        default="dataset_shepard_matzler_train")
+        "--discrete-position", default=False, action="store_true")
+    parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()
