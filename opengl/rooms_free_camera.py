@@ -19,7 +19,8 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       Scene)
 from rooms_ring_camera import (
     build_scene, place_objects, compute_yaw_and_pitch,
-    genearte_camera_quaternion, set_random_texture, udpate_vertex_buffer)
+    genearte_camera_quaternion, set_random_texture, udpate_vertex_buffer,
+    floor_textures, wall_textures, objects)
 
 
 def main():
@@ -36,28 +37,6 @@ def main():
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
         colors.append(np.array((red, green, blue, 1)))
-
-    floor_textures = [
-        "../textures/lg_floor_d.tga",
-        "../textures/lg_style_01_floor_blue_d.tga",
-        "../textures/lg_style_01_floor_orange_bright_d.tga",
-    ]
-
-    wall_textures = [
-        "../textures/lg_style_01_wall_cerise_d.tga",
-        "../textures/lg_style_01_wall_green_bright_d.tga",
-        "../textures/lg_style_01_wall_red_bright_d.tga",
-        "../textures/lg_style_02_wall_yellow_d.tga",
-        "../textures/lg_style_03_wall_orange_bright_d.tga",
-    ]
-
-    objects = [
-        pyrender.objects.Capsule,
-        pyrender.objects.Cylinder,
-        pyrender.objects.Icosahedron,
-        pyrender.objects.Box,
-        pyrender.objects.Sphere,
-    ]
 
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)
@@ -136,6 +115,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--discrete-position", default=False, action="store_true")
     parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument(
+        "--fix-light-position", default=False, action="store_true")
     parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()

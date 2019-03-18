@@ -21,6 +21,28 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       PerspectiveCamera, PointLight, RenderFlags, Scene,
                       Primitive)
 
+floor_textures = [
+    "../textures/lg_floor_d.tga",
+    "../textures/lg_style_01_floor_blue_d.tga",
+    "../textures/lg_style_01_floor_orange_bright_d.tga",
+]
+
+wall_textures = [
+    "../textures/lg_style_01_wall_cerise_d.tga",
+    "../textures/lg_style_01_wall_green_bright_d.tga",
+    "../textures/lg_style_01_wall_red_bright_d.tga",
+    "../textures/lg_style_02_wall_yellow_d.tga",
+    "../textures/lg_style_03_wall_orange_bright_d.tga",
+]
+
+objects = [
+    pyrender.objects.Capsule,
+    pyrender.objects.Cylinder,
+    pyrender.objects.Icosahedron,
+    pyrender.objects.Box,
+    pyrender.objects.Sphere,
+]
+
 
 def set_random_texture(node, path):
     texture_image = Image.open(path).convert("RGB")
@@ -173,28 +195,6 @@ def main():
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
         colors.append(np.array((red, green, blue, 1)))
-
-    floor_textures = [
-        "../textures/lg_floor_d.tga",
-        "../textures/lg_style_01_floor_blue_d.tga",
-        "../textures/lg_style_01_floor_orange_bright_d.tga",
-    ]
-
-    wall_textures = [
-        "../textures/lg_style_01_wall_cerise_d.tga",
-        "../textures/lg_style_01_wall_green_bright_d.tga",
-        "../textures/lg_style_01_wall_red_bright_d.tga",
-        "../textures/lg_style_02_wall_yellow_d.tga",
-        "../textures/lg_style_03_wall_orange_bright_d.tga",
-    ]
-
-    objects = [
-        pyrender.objects.Capsule,
-        pyrender.objects.Cylinder,
-        pyrender.objects.Icosahedron,
-        pyrender.objects.Box,
-        pyrender.objects.Sphere,
-    ]
 
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)

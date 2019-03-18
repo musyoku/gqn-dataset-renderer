@@ -19,9 +19,9 @@ from archiver import Archiver, SceneData
 from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       PerspectiveCamera, PointLight, Primitive, RenderFlags,
                       Scene)
-from rooms_ring_camera import (compute_yaw_and_pitch,
-                               genearte_camera_quaternion, set_random_texture,
-                               udpate_vertex_buffer, build_scene)
+from rooms_ring_camera import (
+    compute_yaw_and_pitch, genearte_camera_quaternion, set_random_texture,
+    udpate_vertex_buffer, build_scene, floor_textures, wall_textures, objects)
 
 
 def load_mnist_images():
@@ -68,7 +68,7 @@ def place_dice(scene, mnist_images, discrete_position=False,
     for z in directions:
         for x in directions:
             available_positions.append((x, z))
-    xz = random.choice(available_positions)
+    xz = np.array(random.choice(available_positions))
 
     if discrete_position == False:
         xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
@@ -80,8 +80,7 @@ def place_dice(scene, mnist_images, discrete_position=False,
             rotation=rotation,
             translation=np.array([xz[0], 0, xz[1]]))
     else:
-        parent = Node(
-            children=[node], translation=np.array([xz[0], 0, xz[1]]))
+        parent = Node(children=[node], translation=np.array([xz[0], 0, xz[1]]))
     scene.add_node(parent)
 
 
@@ -93,28 +92,6 @@ def main():
 
     # Load MNIST images
     mnist_images = load_mnist_images()
-
-    floor_textures = [
-        "../textures/lg_floor_d.tga",
-        "../textures/lg_style_01_floor_blue_d.tga",
-        "../textures/lg_style_01_floor_orange_bright_d.tga",
-    ]
-
-    wall_textures = [
-        "../textures/lg_style_01_wall_cerise_d.tga",
-        "../textures/lg_style_01_wall_green_bright_d.tga",
-        "../textures/lg_style_01_wall_red_bright_d.tga",
-        "../textures/lg_style_02_wall_yellow_d.tga",
-        "../textures/lg_style_03_wall_orange_bright_d.tga",
-    ]
-
-    objects = [
-        pyrender.objects.Capsule,
-        pyrender.objects.Cylinder,
-        pyrender.objects.Icosahedron,
-        pyrender.objects.Box,
-        pyrender.objects.Sphere,
-    ]
 
     renderer = OffscreenRenderer(
         viewport_width=args.image_size, viewport_height=args.image_size)
@@ -128,7 +105,10 @@ def main():
         initial_file_number=args.initial_file_number)
 
     for scene_index in tqdm(range(args.total_scenes)):
-        scene = build_scene(floor_textures, wall_textures)
+        scene = build_scene(
+            floor_textures,
+            wall_textures,
+            fix_light_position=args.fix_light_position)
         place_dice(
             scene,
             mnist_images,
@@ -186,6 +166,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--discrete-position", default=False, action="store_true")
     parser.add_argument("--rotate-dice", default=False, action="store_true")
+    parser.add_argument(
+        "--fix-light-position", default=False, action="store_true")
     parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()

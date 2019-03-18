@@ -2,12 +2,7 @@
 
 # GQN Dataset Renderer
 
-This is a Python library for constructing a dataset for GQN and CGQN.
-
-At this time, this renderer has two backend implementations available: **OpenGL** backend and **CUDA** backend.
-
-OpenGL renderer is built on top of a modified version of [pyrender](https://github.com/mmatl/pyrender).
-
+This is a Python library for constructing a dataset for GQN and CGQN. This renderer has two backend implementations available: **OpenGL** backend and **CUDA** backend. 
 # OpenGL
 
 ## Requirements
@@ -98,7 +93,12 @@ python3 shepard_metzler.py  --num-cubes 7 --num-colors 10 --output-directory she
 
 ```
 cd cuda
-python3 rooms_free_camera.py --output-directory rooms_ring_camera_no_object_rotation --anti-aliasing
+python3 rooms_ring_camera.py --output-directory rooms_ring_camera_no_object_rotation --anti-aliasing
+```
+
+```
+cd cuda
+python3 rooms_free_camera.py --output-directory rooms_free_camera_no_object_rotation --anti-aliasing
 ```
 
 ## MNIST Dice
