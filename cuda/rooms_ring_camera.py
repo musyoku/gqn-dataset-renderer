@@ -139,8 +139,8 @@ def build_scene(floor_textures, wall_textures, fix_light_position=False):
     # Place a light
     geometry = rtx.SphereGeometry(2)
     spread = floor_size / 2 - 1
-    geometry.set_position((spread * random.uniform(-1, 1), 8,
-                           spread * random.uniform(-1, 1)))
+    geometry.set_position((random.uniform(-spread, spread), 8,
+                           random.uniform(-spread, spread)))
     material = rtx.EmissiveMaterial(20, visible=False)
     mapping = rtx.SolidColorMapping((1, 1, 1))
     light = rtx.Object(geometry, material, mapping)
@@ -207,7 +207,7 @@ def main():
     # Initialize colors
     colors = []
     for n in range(args.num_colors):
-        hue = n / (args.num_colors - 1)
+        hue = n / args.num_colors
         saturation = 1
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
@@ -258,18 +258,19 @@ def main():
         scene_data = SceneData((args.image_size, args.image_size),
                                args.num_observations_per_scene)
         for _ in range(args.num_observations_per_scene):
+            # Sample camera position
             rand_position_xz = np.random.normal(size=2)
             rand_position_xz = camera_distance * rand_position_xz / np.linalg.norm(
                 rand_position_xz)
-            # Compute yaw and pitch
-            camera_direction = np.array(
-                [rand_position_xz[0], 0, rand_position_xz[1]])
-            yaw, pitch = compute_yaw_and_pitch(camera_direction)
-            camera_position = (rand_position_xz[0], wall_height / 2,
-                               rand_position_xz[1])
-            center = (0, wall_height / 2, 0)
-            camera.look_at(camera_position, center, up=(0, 1, 0))
+            camera_position = np.array((rand_position_xz[0], wall_height / 2,
+                                        rand_position_xz[1]))
+            center = np.array((0, wall_height / 2, 0))
 
+            # Compute yaw and pitch
+            camera_direction = camera_position - center
+            yaw, pitch = compute_yaw_and_pitch(camera_direction)
+
+            camera.look_at(tuple(camera_position), tuple(center), up=(0, 1, 0))
             renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
 
             # Convert to sRGB

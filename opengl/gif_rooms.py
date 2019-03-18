@@ -20,9 +20,6 @@ from rooms_ring_camera import (build_scene, place_objects,
 
 
 def main():
-    random.seed(1)
-    np.random.seed(1)
-
     # Colors
     colors = []
     for n in range(args.num_colors):
@@ -120,7 +117,7 @@ def main():
         orthographic_camera_node.rotation = genearte_camera_quaternion(
             yaw, pitch)
         orthographic_camera_node.translation = np.array(
-            [camera_direction[0], 3, camera_direction[2]])
+            [camera_direction[0], 4, camera_direction[2]])
 
         image = renderer.render(scene, flags=flags)[0]
 
@@ -140,6 +137,8 @@ def main():
         filename += "_discrete_position"
     if args.rotate_object:
         filename += "_rotate_object"
+    if args.fix_light_position:
+        filename += "_fix_light_position"
     filename += ".gif"
     ani.save(filename, writer="imagemagick")
 

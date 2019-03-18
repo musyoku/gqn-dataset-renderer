@@ -40,11 +40,16 @@ python3 shepard_metzler.py  --num-cubes 7 --num-colors 10 --output-directory she
 
 ## Rooms
 
-![rooms_discrete_position_rotate_object](https://user-images.githubusercontent.com/15250418/54495840-0bafc200-492b-11e9-998f-848f83f45579.gif)
-
+![rooms_rotate_object](https://user-images.githubusercontent.com/15250418/54522817-799ecc80-49b1-11e9-81de-8dccd8fd68b9.gif)
 
 ```
-python3 rooms_free_camera.py --output-directory rooms_ring_camera_no_object_rotation --anti-aliasing
+cd opengl
+python3 rooms_ring_camera.py --output-directory rooms_ring_camera_no_object_rotation --anti-aliasing
+```
+
+```
+cd opengl
+python3 rooms_free_camera.py --output-directory rooms_free_camera_no_object_rotation --anti-aliasing
 ```
 
 # CUDA
@@ -89,11 +94,11 @@ python3 shepard_metzler.py  --num-cubes 7 --num-colors 10 --output-directory she
 
 ## Rooms
 
-![rooms](https://user-images.githubusercontent.com/15250418/52397602-746c7900-2af9-11e9-8ea0-a7985a8bd05e.gif)
+![rooms_rotate_object](https://user-images.githubusercontent.com/15250418/54522553-e5346a00-49b0-11e9-8149-221a18e68a05.gif)
 
 ```
 cd cuda
-python3 rooms_ring_camera.py -objects 3 -colors 12 -k 10
+python3 rooms_free_camera.py --output-directory rooms_ring_camera_no_object_rotation --anti-aliasing
 ```
 
 ## MNIST Dice

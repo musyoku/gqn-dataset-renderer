@@ -11,184 +11,31 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-import gqn
+from rooms_ring_camera import (build_scene, place_objects, wall_height)
 import rtx
-
-
-class GeometryType:
-    box = 1
-    shpere = 2
-    cylinder = 3
-    cone = 4
-
-
-geometry_type_array = [
-    GeometryType.box,
-    GeometryType.shpere,
-    GeometryType.cylinder,
-    GeometryType.cone,
-]
-
-
-def load_texture_image(filename):
-    image = Image.open(filename)
-    image = image.convert("RGB")
-    texture = np.array(image, dtype=np.float32) / 255
-    return texture
-
-
-def build_mapping(texture, wall_aspect_ratio=1.0, scale=1.0):
-    aspect_ratio = texture.shape[1] / texture.shape[0]
-    uv_coordinates = np.array(
-        [
-            [0, 1 / scale],
-            [wall_aspect_ratio / aspect_ratio / scale, 1 / scale],
-            [0, 0],
-            [wall_aspect_ratio / aspect_ratio / scale, 0],
-        ],
-        dtype=np.float32)
-    mapping = rtx.TextureMapping(texture, uv_coordinates)
-    return mapping
-
-
-def build_geometry_by_type(geometry_type):
-    if geometry_type == GeometryType.box:
-        return rtx.BoxGeometry(width=1, height=1, depth=1)
-
-    if geometry_type == GeometryType.shpere:
-        return rtx.SphereGeometry(radius=0.5)
-
-    if geometry_type == GeometryType.cylinder:
-        return rtx.CylinderGeometry(radius=0.5, height=1)
-
-    if geometry_type == GeometryType.cone:
-        return rtx.ConeGeometry(radius=0.5, height=1)
-
-    raise NotImplementedError
-
-
-def generate_object_positions(num_objects, grid_size):
-    available_positions = []
-    for y in range(grid_size):
-        for x in range(grid_size):
-            available_positions.append((x, y))
-    ret = random.sample(available_positions, num_objects)
-    return ret
-
-
-def build_scene(color_array, wall_texture_filename_array,
-                floor_texture_filename_array):
-    grid_size = 8
-    wall_height = grid_size / 3
-    eps = 0.0
-    scene = rtx.Scene(ambient_color=(0.5, 1, 1))
-
-    texture = load_texture_image(random.choice(wall_texture_filename_array))
-    mapping = build_mapping(texture, grid_size / wall_height)
-
-    # Place walls
-    ## 1
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, 0, 0))
-    geometry.set_position((0, 0, -grid_size / 2))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    ## 2
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, -math.pi / 2, 0))
-    geometry.set_position((grid_size / 2, 0, 0))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    ## 3
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, math.pi, 0))
-    geometry.set_position((0, 0, grid_size / 2))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    ## 4
-    geometry = rtx.PlainGeometry(grid_size + eps, wall_height)
-    geometry.set_rotation((0, math.pi / 2, 0))
-    geometry.set_position((-grid_size / 2, 0, 0))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    # floor
-    geometry = rtx.PlainGeometry(grid_size + eps, grid_size + eps)
-    geometry.set_rotation((-math.pi / 2, 0, 0))
-    geometry.set_position((0, -wall_height / 2, 0))
-    material = rtx.LambertMaterial(0.95)
-    texture = load_texture_image(random.choice(floor_texture_filename_array))
-    mapping = build_mapping(texture, scale=0.5)
-    floor = rtx.Object(geometry, material, mapping)
-    scene.add(floor)
-
-    # Place a light
-    geometry = rtx.SphereGeometry(2)
-    spread = grid_size / 2 - 1
-    geometry.set_position((spread * random.uniform(-1, 1), 8,
-                           spread * random.uniform(-1, 1)))
-    material = rtx.EmissiveMaterial(20, visible=False)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
-    light = rtx.Object(geometry, material, mapping)
-    scene.add(light)
-
-    # Place objects
-    r = grid_size // 4
-    r2 = r * 2
-    object_positions = generate_object_positions(args.num_objects, r2 - 1)
-    for position_index in object_positions:
-        geometry_type = random.choice(geometry_type_array)
-        geometry = build_geometry_by_type(geometry_type)
-        geometry.set_rotation((0, math.pi * random.uniform(0, 1), 0))
-
-        noise = np.random.uniform(-0.125, 0.125, size=2)
-        spread = 1.5
-        geometry.set_position((
-            spread * (position_index[0] - r + 1) + noise[0],
-            -wall_height / 2 + 0.5,
-            spread * (position_index[1] - r + 1) + noise[1],
-        ))
-        material = rtx.LambertMaterial(0.9)
-        color = random.choice(color_array)
-        mapping = rtx.SolidColorMapping(color)
-        obj = rtx.Object(geometry, material, mapping)
-        scene.add(obj)
-    return scene
 
 
 def main():
     # Set GPU device
     rtx.set_device(args.gpu_device)
 
-    # Texture
-    wall_texture_filename_array = [
-        "textures/lg_style_01_wall_cerise_d.tga",
-        "textures/lg_style_01_wall_green_bright_d.tga",
-        "textures/lg_style_01_wall_red_bright_d.tga",
-        "textures/lg_style_02_wall_yellow_d.tga",
-        "textures/lg_style_03_wall_orange_bright_d.tga",
+    # Textures
+    floor_textures = [
+        "../textures/lg_style_01_floor_blue_d.tga",
     ]
-    floor_texture_filename_array = [
-        "textures/lg_floor_d.tga",
-        "textures/lg_style_01_floor_blue_d.tga",
-        "textures/lg_style_01_floor_orange_bright_d.tga",
+
+    wall_textures = [
+        "../textures/lg_style_01_wall_cerise_d.tga",
     ]
 
     # Initialize colors
-    color_array = []
+    colors = []
     for n in range(args.num_colors):
-        hue = n / (args.num_colors - 1)
+        hue = n / args.num_colors
         saturation = 1
         lightness = 1
         red, green, blue = colorsys.hsv_to_rgb(hue, saturation, lightness)
-        color_array.append((red, green, blue, 1))
+        colors.append((red, green, blue, 1))
 
     screen_width = args.image_size
     screen_height = args.image_size
@@ -197,9 +44,9 @@ def main():
     rt_args = rtx.RayTracingArguments()
     rt_args.num_rays_per_pixel = 1024
     rt_args.max_bounce = 3
-    rt_args.supersampling_enabled = True
+    rt_args.supersampling_enabled = args.anti_aliasing
     rt_args.next_event_estimation_enabled = True
-    rt_args.ambient_light_intensity = 0.2
+    rt_args.ambient_light_intensity = 0.1
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
@@ -211,15 +58,24 @@ def main():
 
     perspective_camera = rtx.PerspectiveCamera(
         fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
-    orthogonal_camera = rtx.OrthographicCamera()
+    orthographic_camera = rtx.OrthographicCamera()
+    camera_distance = 2
 
     plt.tight_layout()
 
-    scene = build_scene(color_array, wall_texture_filename_array,
-                        floor_texture_filename_array)
+    scene = build_scene(
+        floor_textures,
+        wall_textures,
+        fix_light_position=args.fix_light_position)
+    place_objects(
+        scene,
+        colors,
+        min_num_objects=args.num_objects,
+        max_num_objects=args.num_objects,
+        discrete_position=args.discrete_position,
+        rotate_object=args.rotate_object)
 
-    view_radius = 3
-    rotation = 0
+    current_rad = 0
     rad_step = math.pi / 36
     total_frames = int(math.pi * 2 / rad_step)
 
@@ -229,27 +85,33 @@ def main():
     ims = []
 
     for _ in range(total_frames):
-        eye = (view_radius * math.cos(rotation), -0.125,
-               view_radius * math.sin(rotation))
-        center = (0, 0, 0)
-        perspective_camera.look_at(eye, center, up=(0, 1, 0))
+        # Perspective camera
+        camera_position = (camera_distance * math.cos(current_rad),
+                           wall_height / 2,
+                           camera_distance * math.sin(current_rad))
+        center = (0, wall_height / 2, 0)
 
+        perspective_camera.look_at(camera_position, center, up=(0, 1, 0))
         renderer.render(scene, perspective_camera, rt_args, cuda_args,
                         render_buffer)
+
         image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
         image = np.uint8(image * 255)
         image = cv2.bilateralFilter(image, 3, 25, 25)
         im1 = axis_perspective.imshow(
             image, interpolation="none", animated=True)
 
-        eye = (view_radius * math.cos(rotation),
-               view_radius * math.sin(math.pi / 6),
-               view_radius * math.sin(rotation))
-        center = (0, 0, 0)
-        orthogonal_camera.look_at(eye, center, up=(0, 1, 0))
+        # Orthographic camera
+        offset_y = 1
+        camera_position = (2 * math.cos(current_rad),
+                           2 * math.sin(math.pi / 6) + offset_y,
+                           2 * math.sin(current_rad))
+        center = (0, offset_y, 0)
 
-        renderer.render(scene, orthogonal_camera, rt_args, cuda_args,
+        orthographic_camera.look_at(camera_position, center, up=(0, 1, 0))
+        renderer.render(scene, orthographic_camera, rt_args, cuda_args,
                         render_buffer)
+
         image = np.power(np.clip(render_buffer, 0, 1), 1.0 / 2.2)
         image = np.uint8(image * 255)
         image = cv2.bilateralFilter(image, 3, 25, 25)
@@ -257,13 +119,21 @@ def main():
             image, interpolation="none", animated=True)
         ims.append([im1, im2])
 
-        plt.pause(1e-8)
-        rotation += rad_step
+        # plt.pause(1e-8)
+
+        current_rad += rad_step
 
     ani = animation.ArtistAnimation(
         fig, ims, interval=1 / 24, blit=True, repeat_delay=0)
-
-    ani.save('rooms.gif', writer="imagemagick")
+    filename = "rooms"
+    if args.discrete_position:
+        filename += "_discrete_position"
+    if args.rotate_object:
+        filename += "_rotate_object"
+    if args.fix_light_position:
+        filename += "_fix_light_position"
+    filename += ".gif"
+    ani.save(filename, writer="imagemagick")
 
 
 if __name__ == "__main__":
@@ -271,6 +141,12 @@ if __name__ == "__main__":
     parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
     parser.add_argument("--image-size", type=int, default=64)
     parser.add_argument("--num-objects", "-objects", type=int, default=3)
-    parser.add_argument("--num-colors", "-colors", type=int, default=12)
+    parser.add_argument("--num-colors", "-colors", type=int, default=6)
+    parser.add_argument("--anti-aliasing", default=False, action="store_true")
+    parser.add_argument(
+        "--discrete-position", default=False, action="store_true")
+    parser.add_argument("--rotate-object", default=False, action="store_true")
+    parser.add_argument(
+        "--fix-light-position", default=False, action="store_true")
     args = parser.parse_args()
     main()
