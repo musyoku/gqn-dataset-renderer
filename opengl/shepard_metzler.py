@@ -76,7 +76,7 @@ def generate_block_positions(num_cubes):
         block_abs_locations[current_absolute_pos] = True
 
     position_array = []
-    center_of_gravity = np.array([0.0, 0.0, 0.0])
+    barycenter = np.array([0.0, 0.0, 0.0])
 
     for location in block_locations:
         shift = cube_size
@@ -85,23 +85,23 @@ def generate_block_positions(num_cubes):
 
         position_array.append(position)
 
-        center_of_gravity[0] += position[0]
-        center_of_gravity[1] += position[1]
-        center_of_gravity[2] += position[2]
+        barycenter[0] += position[0]
+        barycenter[1] += position[1]
+        barycenter[2] += position[2]
 
-    center_of_gravity[0] /= num_cubes
-    center_of_gravity[1] /= num_cubes
-    center_of_gravity[2] /= num_cubes
+    barycenter[0] /= num_cubes
+    barycenter[1] /= num_cubes
+    barycenter[2] /= num_cubes
 
     # discretize
-    center_of_gravity = np.round(center_of_gravity / cube_size) * cube_size
+    barycenter = np.round(barycenter / cube_size) * cube_size
 
-    return position_array, center_of_gravity
+    return position_array, barycenter
 
 
 def build_scene(num_cubes, color_candidates):
     # Generate positions of each cube
-    cube_position_array, center_of_gravity = generate_block_positions(
+    cube_position_array, barycenter = generate_block_positions(
         num_cubes)
     assert len(cube_position_array) == num_cubes
 
@@ -116,9 +116,9 @@ def build_scene(num_cubes, color_candidates):
         node = Node(
             mesh=mesh,
             translation=np.array(([
-                position[0] - center_of_gravity[0],
-                position[1] - center_of_gravity[1],
-                position[2] - center_of_gravity[2],
+                position[0] - barycenter[0],
+                position[1] - barycenter[1],
+                position[2] - barycenter[2],
             ])))
         scene.add_node(node)
         cube_nodes.append(node)
@@ -142,7 +142,7 @@ def update_cube_color_and_position(cube_nodes, color_candidates):
     num_cubes = len(cube_nodes)
 
     # Generate positions of each cube
-    cube_position_array, center_of_gravity = generate_block_positions(
+    cube_position_array, barycenter = generate_block_positions(
         num_cubes)
 
     for position, node in zip(cube_position_array, cube_nodes):
@@ -151,9 +151,9 @@ def update_cube_color_and_position(cube_nodes, color_candidates):
             color, node.mesh.primitives[0].positions.shape)
         node.mesh.primitives[0].color_0 = vertex_colors
         node.translation = np.array(([
-            position[0] - center_of_gravity[0],
-            position[1] - center_of_gravity[1],
-            position[2] - center_of_gravity[2],
+            position[0] - barycenter[0],
+            position[1] - barycenter[1],
+            position[2] - barycenter[2],
         ]))
 
 
@@ -236,9 +236,11 @@ def main():
             image = renderer.render(scene, flags=flags)[0]
             scene_data.add(image, camera_position, math.cos(yaw),
                            math.sin(yaw), math.cos(pitch), math.sin(pitch))
-            # plt.clf()
-            # plt.imshow(image)
-            # plt.pause(0.1)
+
+            if args.visualize:
+                plt.clf()
+                plt.imshow(image)
+                plt.pause(1e-10)
 
         archiver.add(scene_data)
 
@@ -262,5 +264,6 @@ if __name__ == "__main__":
     parser.add_argument("--num-colors", type=int, default=10)
     parser.add_argument("--output-directory", type=str, required=True)
     parser.add_argument("--anti-aliasing", default=False, action="store_true")
+    parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()

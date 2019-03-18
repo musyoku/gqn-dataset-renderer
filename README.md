@@ -6,7 +6,7 @@ This is a Python library for constructing a dataset for GQN and CGQN.
 
 At this time, this renderer has two backend implementations available: **OpenGL** backend and **CUDA** backend.
 
-OpenGL renderer is build on top of a modified version of [pyrender](https://github.com/mmatl/pyrender).
+OpenGL renderer is built on top of a modified version of [pyrender](https://github.com/mmatl/pyrender).
 
 # OpenGL
 
@@ -79,11 +79,12 @@ make -j4
 
 ## Shepard-Metzler
 
-![shepard_matzler](https://user-images.githubusercontent.com/15250418/52397603-746c7900-2af9-11e9-97b3-3a823799eaa6.gif)
+![shepard_matzler](https://user-images.githubusercontent.com/15250418/54510705-cf637c80-4991-11e9-86da-73be9711adc0.gif)
+
 
 ```
 cd cuda
-python3 shepard_metzler.py -cubes 5 -colors 12 -k 15
+python3 shepard_metzler.py  --num-cubes 7 --num-colors 10 --output-directory shepard_metzler_7_part --total-scenes 2000000
 ```
 
 ## Rooms
