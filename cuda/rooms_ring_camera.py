@@ -201,6 +201,11 @@ def place_objects(scene,
 
 
 def main():
+    try:
+        os.makedirs(args.output_directory)
+    except:
+        pass
+        
     # Set GPU device
     rtx.set_device(args.gpu_device)
 

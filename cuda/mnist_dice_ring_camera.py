@@ -10,23 +10,11 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-import gqn
 import rtx
-
-
-class GeometryType:
-    box = 1
-    shpere = 2
-    cylinder = 3
-    cone = 4
-
-
-geometry_type_array = [
-    GeometryType.box,
-    GeometryType.shpere,
-    GeometryType.cylinder,
-    GeometryType.cone,
-]
+from archiver import Archiver, SceneData
+from rooms_ring_camera import (build_scene, compute_yaw_and_pitch,
+                               generate_texture_mapping, floor_textures,
+                               wall_textures, wall_height)
 
 
 def load_mnist_images():
@@ -41,15 +29,10 @@ def load_mnist_images():
     return image_array
 
 
-def load_texture_image(filename):
-    image = Image.open(filename)
-    image = image.convert("RGB")
-    texture = np.array(image, dtype=np.float32) / 255
-    return texture
-
-
-def build_dice(mnist_images):
-    assert len(mnist_images) == 6
+def build_dice(scene, mnist_images, discrete_position=False,
+               rotate_dice=False):
+    indices = np.random.choice(
+        np.arange(len(mnist_images)), replace=False, size=6)
 
     dice = rtx.ObjectGroup()
 
@@ -57,7 +40,7 @@ def build_dice(mnist_images):
     geometry = rtx.PlainGeometry(1, 1)
     geometry.set_position((0, 0, 0.5))
     material = rtx.LambertMaterial(0.95)
-    mapping = build_mapping(mnist_images[0])
+    mapping = generate_texture_mapping(mnist_images[indices[0]])
     face = rtx.Object(geometry, material, mapping)
     dice.add(face)
 
@@ -66,7 +49,7 @@ def build_dice(mnist_images):
     geometry.set_rotation((0, -math.pi, 0))
     geometry.set_position((0, 0, -0.5))
     material = rtx.LambertMaterial(0.95)
-    mapping = build_mapping(mnist_images[1])
+    mapping = generate_texture_mapping(mnist_images[indices[1]])
     face = rtx.Object(geometry, material, mapping)
     dice.add(face)
 
@@ -75,7 +58,7 @@ def build_dice(mnist_images):
     geometry.set_rotation((0, math.pi / 2, 0))
     geometry.set_position((0.5, 0, 0))
     material = rtx.LambertMaterial(0.95)
-    mapping = build_mapping(mnist_images[2])
+    mapping = generate_texture_mapping(mnist_images[indices[2]])
     face = rtx.Object(geometry, material, mapping)
     dice.add(face)
 
@@ -84,7 +67,7 @@ def build_dice(mnist_images):
     geometry.set_rotation((0, -math.pi / 2, 0))
     geometry.set_position((-0.5, 0, 0))
     material = rtx.LambertMaterial(0.95)
-    mapping = build_mapping(mnist_images[3])
+    mapping = generate_texture_mapping(mnist_images[indices[3]])
     face = rtx.Object(geometry, material, mapping)
     dice.add(face)
 
@@ -93,134 +76,48 @@ def build_dice(mnist_images):
     geometry.set_rotation((math.pi / 2, 0, 0))
     geometry.set_position((0, -0.5, 0))
     material = rtx.LambertMaterial(0.95)
-    mapping = build_mapping(mnist_images[4])
+    mapping = generate_texture_mapping(mnist_images[indices[4]])
     face = rtx.Object(geometry, material, mapping)
     dice.add(face)
 
-    # 5
+    # 6
     geometry = rtx.PlainGeometry(1, 1)
     geometry.set_rotation((-math.pi / 2, 0, 0))
     geometry.set_position((0, 0.5, 0))
     material = rtx.LambertMaterial(0.95)
-    mapping = build_mapping(mnist_images[5])
+    mapping = generate_texture_mapping(mnist_images[indices[5]])
     face = rtx.Object(geometry, material, mapping)
     dice.add(face)
 
-    dice.set_scale((2, 2, 2))
+    dice.set_scale((1.5, 1.5, 1.5))
 
-    return dice
+    directions = [-1.0, 0.0, 1.0]
+    available_positions = []
+    for z in directions:
+        for x in directions:
+            available_positions.append((x, z))
+    xz = np.array(random.choice(available_positions))
+    if discrete_position == False:
+        xz += np.random.uniform(-0.25, 0.25, size=xz.shape)
+    dice.set_position((xz[0], 0.75, xz[1]))
 
+    if rotate_dice:
+        yaw = np.random.uniform(0, math.pi * 2, size=1)[0]
+        dice.set_rotation((0, yaw, 0))
 
-def build_mapping(texture, wall_aspect_ratio=1.0, scale=1.0):
-    aspect_ratio = texture.shape[1] / texture.shape[0]
-    uv_coordinates = np.array(
-        [
-            [0, 1 / scale],
-            [wall_aspect_ratio / aspect_ratio / scale, 1 / scale],
-            [0, 0],
-            [wall_aspect_ratio / aspect_ratio / scale, 0],
-        ],
-        dtype=np.float32)
-    mapping = rtx.TextureMapping(texture, uv_coordinates)
-    return mapping
-
-
-def build_scene(mnist_image_array,
-                wall_texture_filename_array,
-                floor_texture_filename_array,
-                grid_size=8):
-    assert len(mnist_image_array) == 6
-
-    wall_height = grid_size / 3
-    scene = rtx.Scene(ambient_color=(0.5, 1, 1))
-
-    texture = load_texture_image(random.choice(wall_texture_filename_array))
-    mapping = build_mapping(texture, grid_size / wall_height)
-
-    # Place walls
-    ## 1
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
-    geometry.set_rotation((0, 0, 0))
-    geometry.set_position((0, 0, -grid_size / 2))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    ## 2
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
-    geometry.set_rotation((0, -math.pi / 2, 0))
-    geometry.set_position((grid_size / 2, 0, 0))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    ## 3
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
-    geometry.set_rotation((0, math.pi, 0))
-    geometry.set_position((0, 0, grid_size / 2))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    ## 4
-    geometry = rtx.PlainGeometry(grid_size, wall_height)
-    geometry.set_rotation((0, math.pi / 2, 0))
-    geometry.set_position((-grid_size / 2, 0, 0))
-    material = rtx.LambertMaterial(0.95)
-    wall = rtx.Object(geometry, material, mapping)
-    scene.add(wall)
-
-    # floor
-    geometry = rtx.PlainGeometry(grid_size, grid_size)
-    geometry.set_rotation((-math.pi / 2, 0, 0))
-    geometry.set_position((0, -wall_height / 2, 0))
-    material = rtx.LambertMaterial(0.95)
-    texture = load_texture_image(random.choice(floor_texture_filename_array))
-    mapping = build_mapping(texture, scale=0.5)
-    floor = rtx.Object(geometry, material, mapping)
-    scene.add(floor)
-
-    # Place a light
-    geometry = rtx.SphereGeometry(2)
-    spread = grid_size / 2 - 1
-    geometry.set_position((spread * random.uniform(-1, 1), 8,
-                           spread * random.uniform(-1, 1)))
-    material = rtx.EmissiveMaterial(20, visible=False)
-    mapping = rtx.SolidColorMapping((1, 1, 1))
-    light = rtx.Object(geometry, material, mapping)
-    scene.add(light)
-
-    # Place a dice
-    dice = build_dice(mnist_image_array)
-    spread = grid_size / 3
-    dice.set_position((spread * random.uniform(-1, 1), 1 - wall_height / 2,
-                       spread * random.uniform(-1, 1)))
-    dice.set_rotation((0, random.uniform(0, math.pi * 2), 0))
     scene.add(dice)
 
-    return scene
-
-
 def main():
-    # Set GPU device
-    rtx.set_device(args.gpu_device)
-
-    # Texture
-    wall_texture_filename_array = [
-        "textures/lg_style_01_wall_cerise_d.tga",
-        "textures/lg_style_01_wall_green_bright_d.tga",
-        "textures/lg_style_01_wall_red_bright_d.tga",
-        "textures/lg_style_02_wall_yellow_d.tga",
-        "textures/lg_style_03_wall_orange_bright_d.tga",
-    ]
-    floor_texture_filename_array = [
-        "textures/lg_floor_d.tga",
-        "textures/lg_style_01_floor_blue_d.tga",
-        "textures/lg_style_01_floor_orange_bright_d.tga",
-    ]
+    try:
+        os.makedirs(args.output_directory)
+    except:
+        pass
 
     # Load MNIST images
-    mnist_image_array = load_mnist_images()
+    mnist_images = load_mnist_images()
+
+    # Set GPU device
+    rtx.set_device(args.gpu_device)
 
     screen_width = args.image_size
     screen_height = args.image_size
@@ -229,46 +126,56 @@ def main():
     rt_args = rtx.RayTracingArguments()
     rt_args.num_rays_per_pixel = 1024
     rt_args.max_bounce = 3
-    rt_args.supersampling_enabled = True
+    rt_args.supersampling_enabled = args.anti_aliasing
     rt_args.next_event_estimation_enabled = True
-    rt_args.ambient_light_intensity = 0.2
+    rt_args.ambient_light_intensity = 0.1
 
     cuda_args = rtx.CUDAKernelLaunchArguments()
     cuda_args.num_threads = 64
-    cuda_args.num_rays_per_thread = 16
+    cuda_args.num_rays_per_thread = 32
 
     renderer = rtx.Renderer()
     render_buffer = np.zeros(
         (screen_height, screen_width, 3), dtype=np.float32)
 
-    dataset = gqn.archiver.Archiver(
+    archiver = Archiver(
         directory=args.output_directory,
-        total_observations=args.total_observations,
-        num_observations_per_file=min(args.num_observations_per_file,
-                                      args.total_observations),
+        total_scenes=args.total_scenes,
+        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
         image_size=(args.image_size, args.image_size),
-        num_views_per_scene=args.num_views_per_scene,
+        num_observations_per_scene=args.num_observations_per_scene,
         initial_file_number=args.initial_file_number)
 
     camera = rtx.PerspectiveCamera(
         fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
+    camera_distance = 2
 
-    for _ in tqdm(range(args.total_observations)):
+    for _ in tqdm(range(args.total_scenes)):
         scene = build_scene(
-            random.sample(mnist_image_array, 6), wall_texture_filename_array,
-            floor_texture_filename_array)
-        scene_data = gqn.archiver.SceneData((args.image_size, args.image_size),
-                                            args.num_views_per_scene)
+            floor_textures,
+            wall_textures,
+            fix_light_position=args.fix_light_position)
+        build_dice(
+            scene,
+            mnist_images,
+            discrete_position=args.discrete_position,
+            rotate_dice=args.rotate_dice)
+        scene_data = SceneData((args.image_size, args.image_size),
+                               args.num_observations_per_scene)
+        for _ in range(args.num_observations_per_scene):
+            # Sample camera position
+            rand_position_xz = np.random.normal(size=2)
+            rand_position_xz = camera_distance * rand_position_xz / np.linalg.norm(
+                rand_position_xz)
+            camera_position = np.array((rand_position_xz[0], wall_height / 2,
+                                        rand_position_xz[1]))
+            center = np.array((0, wall_height / 2, 0))
 
-        view_radius = 3
+            # Compute yaw and pitch
+            camera_direction = camera_position - center
+            yaw, pitch = compute_yaw_and_pitch(camera_direction)
 
-        for _ in range(args.num_views_per_scene):
-            rotation = random.uniform(0, math.pi * 2)
-            eye = (view_radius * math.cos(rotation), -0.125,
-                   view_radius * math.sin(rotation))
-            center = (0, -0.125, 0)
-            camera.look_at(eye, center, up=(0, 1, 0))
-
+            camera.look_at(tuple(camera_position), tuple(center), up=(0, 1, 0))
             renderer.render(scene, camera, rt_args, cuda_args, render_buffer)
 
             # Convert to sRGB
@@ -276,31 +183,32 @@ def main():
             image = np.uint8(image * 255)
             image = cv2.bilateralFilter(image, 3, 25, 25)
 
-            yaw = gqn.math.yaw(eye, center)
-            pitch = gqn.math.pitch(eye, center)
-            scene_data.add(image, eye, math.cos(yaw), math.sin(yaw),
-                           math.cos(pitch), math.sin(pitch))
+            scene_data.add(image, camera_position, math.cos(yaw),
+                           math.sin(yaw), math.cos(pitch), math.sin(pitch))
 
-            # plt.imshow(image, interpolation="none")
-            # plt.pause(1e-8)
+            if args.visualize:
+                plt.clf()
+                plt.imshow(image)
+                plt.pause(1e-10)
 
-        dataset.add(scene_data)
+        archiver.add(scene_data)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu-device", "-gpu", type=int, default=0)
-    parser.add_argument(
-        "--total-observations", "-total", type=int, default=2000000)
-    parser.add_argument(
-        "--num-observations-per-file", "-per-file", type=int, default=2000)
-    parser.add_argument("--initial-file-number", "-f", type=int, default=1)
-    parser.add_argument("--num-views-per-scene", "-k", type=int, default=5)
+    parser.add_argument("--total-scenes", "-total", type=int, default=2000000)
+    parser.add_argument("--num-scenes-per-file", type=int, default=2000)
+    parser.add_argument("--initial-file-number", type=int, default=1)
+    parser.add_argument("--num-observations-per-scene", type=int, default=10)
     parser.add_argument("--image-size", type=int, default=64)
+    parser.add_argument("--output-directory", type=str, required=True)
+    parser.add_argument("--anti-aliasing", default=False, action="store_true")
     parser.add_argument(
-        "--output-directory",
-        "-out",
-        type=str,
-        default="dataset_shepard_matzler_train")
+        "--discrete-position", default=False, action="store_true")
+    parser.add_argument("--rotate-dice", default=False, action="store_true")
+    parser.add_argument(
+        "--fix-light-position", default=False, action="store_true")
+    parser.add_argument("--visualize", default=False, action="store_true")
     args = parser.parse_args()
     main()

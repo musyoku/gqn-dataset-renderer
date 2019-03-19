@@ -18,6 +18,11 @@ from rooms_ring_camera import (build_scene, compute_yaw_and_pitch,
 
 
 def main():
+    try:
+        os.makedirs(args.output_directory)
+    except:
+        pass
+        
     # Set GPU device
     rtx.set_device(args.gpu_device)
 

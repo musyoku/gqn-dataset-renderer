@@ -49,7 +49,7 @@ python3 rooms_free_camera.py --output-directory rooms_free_camera_no_object_rota
 
 ## MNIST Dice
 
-![mnist_dice](https://user-images.githubusercontent.com/15250418/54574753-de4f3b00-4a34-11e9-8ccf-fd6b87557f9e.gif)
+![mnist_dice](https://user-images.githubusercontent.com/15250418/54579797-8ae6e800-4a48-11e9-8234-9059ae777d9d.gif)
 
 ```
 cd opengl
