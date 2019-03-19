@@ -3,18 +3,33 @@ import colorsys
 import math
 import random
 import time
-import cv2
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
 from PIL import Image
+from tqdm import tqdm
 
-from archiver import Archiver, SceneData
 import rtx
+from archiver import Archiver, SceneData
 
 floor_size = 7
 wall_height = floor_size / 3
+
+# Textures
+floor_textures = [
+    "../textures/lg_floor_d.tga",
+    "../textures/lg_style_01_floor_blue_d.tga",
+    "../textures/lg_style_01_floor_orange_bright_d.tga",
+]
+
+wall_textures = [
+    "../textures/lg_style_01_wall_cerise_d.tga",
+    "../textures/lg_style_01_wall_green_bright_d.tga",
+    "../textures/lg_style_01_wall_red_bright_d.tga",
+    "../textures/lg_style_02_wall_yellow_d.tga",
+    "../textures/lg_style_03_wall_orange_bright_d.tga",
+]
 
 
 class GeometryType:
@@ -188,21 +203,6 @@ def place_objects(scene,
 def main():
     # Set GPU device
     rtx.set_device(args.gpu_device)
-
-    # Textures
-    floor_textures = [
-        "../textures/lg_floor_d.tga",
-        "../textures/lg_style_01_floor_blue_d.tga",
-        "../textures/lg_style_01_floor_orange_bright_d.tga",
-    ]
-
-    wall_textures = [
-        "../textures/lg_style_01_wall_cerise_d.tga",
-        "../textures/lg_style_01_wall_green_bright_d.tga",
-        "../textures/lg_style_01_wall_red_bright_d.tga",
-        "../textures/lg_style_02_wall_yellow_d.tga",
-        "../textures/lg_style_03_wall_orange_bright_d.tga",
-    ]
 
     # Initialize colors
     colors = []

@@ -99,7 +99,7 @@ def build_scene(floor_textures, wall_textures, fix_light_position=False):
     set_random_texture(node, texture_path)
     scene.add_node(node)
 
-    light = DirectionalLight(color=np.ones(3), intensity=15)
+    light = DirectionalLight(color=np.ones(3), intensity=10)
     if fix_light_position == True:
         translation = np.array([1, 1, 1])
     else:

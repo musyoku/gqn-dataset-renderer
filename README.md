@@ -47,6 +47,15 @@ cd opengl
 python3 rooms_free_camera.py --output-directory rooms_free_camera_no_object_rotation --anti-aliasing
 ```
 
+## MNIST Dice
+
+![mnist_dice](https://user-images.githubusercontent.com/15250418/54574753-de4f3b00-4a34-11e9-8ccf-fd6b87557f9e.gif)
+
+```
+cd opengl
+python3 mnist_dice_ring_camera.py --output-directory mnist_dice_ring_camera_no_object_rotation --anti-aliasing
+```
+
 # CUDA
 
 ## Requirements

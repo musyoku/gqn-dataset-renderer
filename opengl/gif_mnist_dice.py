@@ -101,11 +101,11 @@ def main():
 
     ani = animation.ArtistAnimation(
         fig, ims, interval=1 / 24, blit=True, repeat_delay=0)
-    filename = "rooms"
+    filename = "mnist_dice"
     if args.discrete_position:
         filename += "_discrete_position"
-    if args.rotate_object:
-        filename += "_rotate_object"
+    if args.rotate_dice:
+        filename += "_rotate_dice"
     if args.fix_light_position:
         filename += "_fix_light_position"
     filename += ".gif"
