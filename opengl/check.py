@@ -19,7 +19,7 @@ def main():
             image = image_array[index]
 
             plt.imshow(image[0], interpolation="none")
-            plt.pause(0.1)
+            plt.pause(1e-10)
 
 
 if __name__ == "__main__":

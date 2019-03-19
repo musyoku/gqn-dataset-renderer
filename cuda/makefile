@@ -1,7 +1,7 @@
 CXX = g++
-INCLUDE = -Irtx/external $(shell pkg-config --cflags glfw3) $(shell python3 -m pybind11 --includes)
+INCLUDE = -Irtx/external $(shell python3 -m pybind11 --includes)
 LIBRARIES = -L/usr/local/cuda-9.1/lib64
-LDFLAGS = $(shell pkg-config --static --libs glfw3) -shared -fopenmp
+LDFLAGS = -shared -fopenmp
 CXXFLAGS = -O3 -Wall -Wformat -march=native -std=c++14 -fPIC -fopenmp
 NVCCFLAGS = -ccbin=$(CXX) -Xcompiler "-fPIC"
 SOURCES = $(wildcard rtx/external/gl3w/*.c) \
