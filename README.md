@@ -1,5 +1,3 @@
-**Status**: Maintenance
-
 # GQN Dataset Renderer
 
 This is a Python library for constructing a dataset for GQN and CGQN. This renderer has two backend implementations available: **OpenGL** backend and **CUDA** backend. 
