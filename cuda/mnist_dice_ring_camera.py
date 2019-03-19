@@ -29,7 +29,7 @@ def load_mnist_images():
     return image_array
 
 
-def build_dice(scene, mnist_images, discrete_position=False,
+def place_dice(scene, mnist_images, discrete_position=False,
                rotate_dice=False):
     indices = np.random.choice(
         np.arange(len(mnist_images)), replace=False, size=6)
@@ -155,7 +155,7 @@ def main():
             floor_textures,
             wall_textures,
             fix_light_position=args.fix_light_position)
-        build_dice(
+        place_dice(
             scene,
             mnist_images,
             discrete_position=args.discrete_position,

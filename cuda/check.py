@@ -24,10 +24,6 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset-directory",
-        "-dataset",
-        type=str,
-        default="dataset_shepard_matzler_train")
+    parser.add_argument("--dataset-directory", type=str, required=True)
     args = parser.parse_args()
     main()

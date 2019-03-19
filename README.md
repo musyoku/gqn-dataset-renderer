@@ -112,19 +112,11 @@ python3 rooms_free_camera.py --output-directory rooms_free_camera_no_object_rota
 
 ## MNIST Dice
 
-![mnist_dice](https://user-images.githubusercontent.com/15250418/52397600-746c7900-2af9-11e9-9aa7-1088341e0f16.gif)
+![rooms](https://user-images.githubusercontent.com/15250418/54581222-119ec380-4a4f-11e9-960b-db679e33723f.gif)
 
 ```
 cd cuda
-python3 mnist_dice_ring_camera.py -k 10
-```
-
-## Using multiple GPUs
-
-```
-cd cuda
-python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5 -gpu 0 --total-observations 100000 --num-observations-per-file 2000
-python3 rooms_ring_camera.py -objects 3 -colors 12 -k 5 -gpu 1 --total-observations 100000 --num-observations-per-file 2000 --initial-file-number 51
+python3 mnist_dice_ring_camera.py --output-directory mnist_dice_ring_camera_no_object_rotation --anti-aliasing
 ```
 
 # Textures

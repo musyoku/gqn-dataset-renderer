@@ -11,22 +11,14 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-from rooms_ring_camera import (build_scene, place_objects, wall_height)
+from rooms_ring_camera import (build_scene, place_objects, floor_textures,
+                               wall_textures, wall_height)
 import rtx
 
 
 def main():
     # Set GPU device
     rtx.set_device(args.gpu_device)
-
-    # Textures
-    floor_textures = [
-        "../textures/lg_style_01_floor_blue_d.tga",
-    ]
-
-    wall_textures = [
-        "../textures/lg_style_01_wall_cerise_d.tga",
-    ]
 
     # Initialize colors
     colors = []
