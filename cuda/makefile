@@ -22,14 +22,6 @@ EXTENSION = $(shell python3-config --extension-suffix)
 OUTPUT = .
 TARGET = $(OUTPUT)/rtx$(EXTENSION)
 
-UNAME := $(shell uname -s)
-ifeq ($(UNAME), Linux)
-	LDFLAGS += -lGL
-endif
-ifeq ($(UNAME), Darwin)
-	LDFLAGS += -framework OpenGL -undefined dynamic_lookup
-endif
-
 $(TARGET): $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LDFLAGS) $(LIBRARIES) -lcudart 
 

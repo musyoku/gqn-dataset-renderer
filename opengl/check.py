@@ -9,17 +9,23 @@ from PIL import Image
 
 
 def main():
+    fig = plt.figure(figsize=(10, 10))
     image_filename_array = os.listdir(
         os.path.join(args.dataset_directory, "images"))
     while True:
         for filename in image_filename_array:
             image_array = np.load(
                 os.path.join(args.dataset_directory, "images", filename))
-            index = random.choice(list(range(image_array.shape[0])))
-            image = image_array[index]
+            indices = np.random.choice(
+                np.arange(image_array.shape[0]), replace=False, size=10 * 10)
+            images = image_array[indices]
+            images = images[:, 0, ...]
+            images = images.reshape((10, 10, 64, 64, 3))
+            images = images.transpose((0, 2, 1, 3, 4))
+            images = images.reshape((10 * 64, 10 * 64, 3))
 
-            plt.imshow(image[0], interpolation="none")
-            plt.pause(1e-10)
+            plt.imshow(images, interpolation="none")
+            plt.pause(0.1)
 
 
 if __name__ == "__main__":
