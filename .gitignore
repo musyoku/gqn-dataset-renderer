@@ -15,6 +15,7 @@
 !*.obj
 !*.mtl
 !.gitignore
+!LICENSE
 !makefile
 !placeholder.png
 
