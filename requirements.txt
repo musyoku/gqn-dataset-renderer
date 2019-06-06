@@ -7,5 +7,8 @@ PyOpenGL            # For OpenGL
 PyOpenGL_accelerate # For OpenGL
 six                 # For Python 2/3 interop
 trimesh             # For meshes
+opencv-python
+matplotlib
+tqdm
 
 pyglet == 1.4.0b1   # For the pyglet viewer
