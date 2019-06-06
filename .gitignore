@@ -18,6 +18,7 @@
 !LICENSE
 !makefile
 !placeholder.png
+!requirements.txt
 
 # ignore
 .vscode
