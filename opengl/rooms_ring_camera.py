@@ -21,18 +21,21 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       PerspectiveCamera, PointLight, RenderFlags, Scene,
                       Primitive)
 
+texture_directory = os.path.join(os.path.dirname(__file__), "..", "textures")
+object_directory = os.path.join(os.path.dirname(__file__), "objects")
+
 floor_textures = [
-    "../textures/lg_floor_d.tga",
-    "../textures/lg_style_01_floor_blue_d.tga",
-    "../textures/lg_style_01_floor_orange_bright_d.tga",
+    "{}/lg_floor_d.tga".format(texture_directory),
+    "{}/lg_style_01_floor_blue_d.tga".format(texture_directory),
+    "{}/lg_style_01_floor_orange_bright_d.tga".format(texture_directory),
 ]
 
 wall_textures = [
-    "../textures/lg_style_01_wall_cerise_d.tga",
-    "../textures/lg_style_01_wall_green_bright_d.tga",
-    "../textures/lg_style_01_wall_red_bright_d.tga",
-    "../textures/lg_style_02_wall_yellow_d.tga",
-    "../textures/lg_style_03_wall_orange_bright_d.tga",
+    "{}/lg_style_01_wall_cerise_d.tga".format(texture_directory),
+    "{}/lg_style_01_wall_green_bright_d.tga".format(texture_directory),
+    "{}/lg_style_01_wall_red_bright_d.tga".format(texture_directory),
+    "{}/lg_style_02_wall_yellow_d.tga".format(texture_directory),
+    "{}/lg_style_03_wall_orange_bright_d.tga".format(texture_directory),
 ]
 
 objects = [
@@ -57,7 +60,7 @@ def build_scene(floor_textures, wall_textures, fix_light_position=False):
         bg_color=np.array([153 / 255, 226 / 255, 249 / 255]),
         ambient_light=np.array([0.5, 0.5, 0.5, 1.0]))
 
-    floor_trimesh = trimesh.load("objects/floor.obj")
+    floor_trimesh = trimesh.load("{}/floor.obj".format(object_directory))
     mesh = Mesh.from_trimesh(floor_trimesh, smooth=False)
     node = Node(
         mesh=mesh,
@@ -69,7 +72,7 @@ def build_scene(floor_textures, wall_textures, fix_light_position=False):
 
     texture_path = random.choice(wall_textures)
 
-    wall_trimesh = trimesh.load("objects/wall.obj")
+    wall_trimesh = trimesh.load("{}/wall.obj".format(object_directory))
     mesh = Mesh.from_trimesh(wall_trimesh, smooth=False)
     node = Node(mesh=mesh, translation=np.array([0, 1.15, -3.5]))
     set_random_texture(node, texture_path)
@@ -219,7 +222,7 @@ def main():
             max_num_objects=args.max_num_objects,
             discrete_position=args.discrete_position,
             rotate_object=args.rotate_object)
-        camera_distance = 4
+        camera_distance = 4.5
         camera = PerspectiveCamera(yfov=math.pi / 4)
         camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
         scene.add_node(camera_node)
