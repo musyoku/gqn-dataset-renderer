@@ -10,5 +10,5 @@ trimesh             # For meshes
 opencv-python
 matplotlib
 tqdm
-
+shapely
 pyglet == 1.4.0b1   # For the pyglet viewer
