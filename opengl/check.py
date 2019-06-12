@@ -16,7 +16,7 @@ def main():
         for filename in filename_array:
             with h5py.File(
                     os.path.join(args.dataset_directory, filename), "r") as f:
-                images = f["images"].value
+                images = f["images"][()]
                 indices = np.random.choice(
                     np.arange(images.shape[0]), replace=False, size=10)
                 images = images[indices]
