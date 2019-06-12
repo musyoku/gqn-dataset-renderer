@@ -23,6 +23,24 @@ def main():
         os.makedirs(args.output_directory)
     except:
         pass
+
+    last_file_number = args.initial_file_number + args.total_scenes // args.num_scenes_per_file - 1
+    initial_file_number = args.initial_file_number
+    if os.path.isdir(args.output_directory):
+        files = os.listdir(args.output_directory)
+        for name in files:
+            number = int(name.replace(".h5", ""))
+            if number > last_file_number:
+                continue
+            if number < args.initial_file_number:
+                continue
+            if number < initial_file_number:
+                continue
+            initial_file_number = number + 1
+    total_scenes_to_render = args.total_scenes - args.num_scenes_per_file * (
+        initial_file_number - args.initial_file_number)
+
+    assert args.num_scenes_per_file <= total_scenes_to_render
         
     # Set GPU device
     rtx.set_device(args.gpu_device)
@@ -57,16 +75,15 @@ def main():
 
     archiver = Archiver(
         directory=args.output_directory,
-        total_scenes=args.total_scenes,
-        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
+        num_scenes_per_file=args.num_scenes_per_file,
         image_size=(args.image_size, args.image_size),
         num_observations_per_scene=args.num_observations_per_scene,
-        initial_file_number=args.initial_file_number)
+        initial_file_number=initial_file_number)
 
     camera = rtx.PerspectiveCamera(
         fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
 
-    for _ in tqdm(range(args.total_scenes)):
+    for _ in tqdm(range(total_scenes_to_render)):
         scene = build_scene(
             floor_textures,
             wall_textures,
@@ -84,8 +101,8 @@ def main():
             rand_position_xz = np.random.uniform(-2.5, 2.5, size=2)
             rand_lookat_xz = np.random.uniform(-6, 6, size=2)
             camera_position = np.array(
-                [rand_position_xz[0], 1, rand_position_xz[1]])
-            look_at = np.array([rand_lookat_xz[0], 1, rand_lookat_xz[1]])
+                [rand_position_xz[0], wall_height / 2, rand_position_xz[1]])
+            look_at = np.array([rand_lookat_xz[0], wall_height / 2, rand_lookat_xz[1]])
 
             # Compute yaw and pitch
             camera_direction = rand_position_xz - rand_lookat_xz

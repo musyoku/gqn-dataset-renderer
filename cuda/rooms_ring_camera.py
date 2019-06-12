@@ -18,20 +18,22 @@ floor_size = 7
 wall_height = floor_size / 3
 
 # Textures
+texture_directory = os.path.join(os.path.dirname(__file__), "..", "textures")
+object_directory = os.path.join(os.path.dirname(__file__), "objects")
+
 floor_textures = [
-    "../textures/lg_floor_d.tga",
-    "../textures/lg_style_01_floor_blue_d.tga",
-    "../textures/lg_style_01_floor_orange_bright_d.tga",
+    "{}/lg_floor_d.tga".format(texture_directory),
+    "{}/lg_style_01_floor_blue_d.tga".format(texture_directory),
+    "{}/lg_style_01_floor_orange_bright_d.tga".format(texture_directory),
 ]
 
 wall_textures = [
-    "../textures/lg_style_01_wall_cerise_d.tga",
-    "../textures/lg_style_01_wall_green_bright_d.tga",
-    "../textures/lg_style_01_wall_red_bright_d.tga",
-    "../textures/lg_style_02_wall_yellow_d.tga",
-    "../textures/lg_style_03_wall_orange_bright_d.tga",
+    "{}/lg_style_01_wall_cerise_d.tga".format(texture_directory),
+    "{}/lg_style_01_wall_green_bright_d.tga".format(texture_directory),
+    "{}/lg_style_01_wall_red_bright_d.tga".format(texture_directory),
+    "{}/lg_style_02_wall_yellow_d.tga".format(texture_directory),
+    "{}/lg_style_03_wall_orange_bright_d.tga".format(texture_directory),
 ]
-
 
 class GeometryType:
     box = 1
@@ -206,6 +208,24 @@ def main():
         os.makedirs(args.output_directory)
     except:
         pass
+
+    last_file_number = args.initial_file_number + args.total_scenes // args.num_scenes_per_file - 1
+    initial_file_number = args.initial_file_number
+    if os.path.isdir(args.output_directory):
+        files = os.listdir(args.output_directory)
+        for name in files:
+            number = int(name.replace(".h5", ""))
+            if number > last_file_number:
+                continue
+            if number < args.initial_file_number:
+                continue
+            if number < initial_file_number:
+                continue
+            initial_file_number = number + 1
+    total_scenes_to_render = args.total_scenes - args.num_scenes_per_file * (
+        initial_file_number - args.initial_file_number)
+
+    assert args.num_scenes_per_file <= total_scenes_to_render
         
     # Set GPU device
     rtx.set_device(args.gpu_device)
@@ -240,17 +260,16 @@ def main():
 
     archiver = Archiver(
         directory=args.output_directory,
-        total_scenes=args.total_scenes,
-        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
+        num_scenes_per_file=args.num_scenes_per_file,
         image_size=(args.image_size, args.image_size),
         num_observations_per_scene=args.num_observations_per_scene,
-        initial_file_number=args.initial_file_number)
+        initial_file_number=initial_file_number)
 
     camera = rtx.PerspectiveCamera(
         fov_rad=math.pi / 3, aspect_ratio=screen_width / screen_height)
     camera_distance = 2
 
-    for _ in tqdm(range(args.total_scenes)):
+    for _ in tqdm(range(total_scenes_to_render)):
         scene = build_scene(
             floor_textures,
             wall_textures,

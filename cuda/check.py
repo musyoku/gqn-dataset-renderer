@@ -1,6 +1,7 @@
 import os
 import random
 import argparse
+import h5py
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,17 +10,23 @@ from PIL import Image
 
 
 def main():
-    image_filename_array = os.listdir(
-        os.path.join(args.dataset_directory, "images"))
+    fig = plt.figure(figsize=(10, 10))
+    filename_array = os.listdir(args.dataset_directory)
     while True:
-        for filename in image_filename_array:
-            image_array = np.load(
-                os.path.join(args.dataset_directory, "images", filename))
-            index = random.choice(list(range(image_array.shape[0])))
-            image = image_array[index]
+        for filename in filename_array:
+            with h5py.File(
+                    os.path.join(args.dataset_directory, filename), "r") as f:
+                images = f["images"].value
+                indices = np.random.choice(
+                    np.arange(images.shape[0]), replace=False, size=10)
+                images = images[indices]
+                images = images[:, :10, ...]
+                images = images.reshape((10, 10, 64, 64, 3))
+                images = images.transpose((0, 2, 1, 3, 4))
+                images = images.reshape((10 * 64, 10 * 64, 3))
 
-            plt.imshow(image[0], interpolation="none")
-            plt.pause(0.1)
+                plt.imshow(images, interpolation="none")
+                plt.pause(1)
 
 
 if __name__ == "__main__":

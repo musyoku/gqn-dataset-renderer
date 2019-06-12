@@ -1,4 +1,5 @@
 import os
+import h5py
 import numpy as np
 
 
@@ -6,8 +7,8 @@ class SceneData:
     def __init__(self, image_size, num_observations_per_scene):
         self.images = np.zeros(
             (num_observations_per_scene, ) + image_size + (3, ), dtype="uint8")
-        self.viewpoints = np.zeros(
-            (num_observations_per_scene, 7), dtype="float32")
+        self.viewpoints = np.zeros((num_observations_per_scene, 7),
+                                   dtype="float32")
         self.view_index = 0
         self.num_observations_per_scene = num_observations_per_scene
         self.image_size = image_size
@@ -42,7 +43,6 @@ class SceneData:
 class Archiver:
     def __init__(self,
                  directory,
-                 total_scenes=2000000,
                  num_scenes_per_file=2000,
                  image_size=(64, 64),
                  num_observations_per_scene=5,
@@ -58,7 +58,6 @@ class Archiver:
         self.current_num_observations = 0
         self.current_pool_index = 0
         self.current_file_number = initial_file_number
-        self.total_scenes = total_scenes
         self.num_scenes_per_file = num_scenes_per_file
         self.directory = directory
         self.image_size = image_size
@@ -66,14 +65,6 @@ class Archiver:
         self.total_scenes = 0
         try:
             os.mkdir(directory)
-        except:
-            pass
-        try:
-            os.mkdir(os.path.join(directory, "images"))
-        except:
-            pass
-        try:
-            os.mkdir(os.path.join(directory, "viewpoints"))
         except:
             pass
 
@@ -91,10 +82,7 @@ class Archiver:
             self.total_scenes += self.num_scenes_per_file
 
     def save_subset(self):
-        filename = "{:03d}.npy".format(self.current_file_number)
-        np.save(os.path.join(self.directory, "images", filename), self.images)
-
-        filename = "{:03d}.npy".format(self.current_file_number)
-        np.save(
-            os.path.join(self.directory, "viewpoints", filename),
-            self.viewpoints)
+        filename = "{:04d}.h5".format(self.current_file_number)
+        with h5py.File(os.path.join(self.directory, filename), "w") as f:
+            f.create_dataset("images", data=self.images)
+            f.create_dataset("viewpoints", data=self.viewpoints)

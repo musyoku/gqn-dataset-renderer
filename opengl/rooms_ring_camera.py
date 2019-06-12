@@ -191,21 +191,22 @@ def main():
         pass
 
     last_file_number = args.initial_file_number + args.total_scenes // args.num_scenes_per_file - 1
-    images_directory_path = os.path.join(args.output_directory, "images")
     initial_file_number = args.initial_file_number
-    if os.path.isdir(images_directory_path):
-        files = os.listdir(images_directory_path)
+    if os.path.isdir(args.output_directory):
+        files = os.listdir(args.output_directory)
         for name in files:
-            number = int(name.replace(".npy", ""))
+            number = int(name.replace(".h5", ""))
             if number > last_file_number:
                 continue
             if number < args.initial_file_number:
                 continue
             if number < initial_file_number:
                 continue
-            initial_file_number = number
+            initial_file_number = number + 1
     total_scenes_to_render = args.total_scenes - args.num_scenes_per_file * (
         initial_file_number - args.initial_file_number)
+
+    assert args.num_scenes_per_file <= total_scenes_to_render
 
     # Colors
     colors = []
@@ -221,8 +222,7 @@ def main():
 
     archiver = Archiver(
         directory=args.output_directory,
-        total_scenes=args.total_scenes,
-        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
+        num_scenes_per_file=args.num_scenes_per_file,
         image_size=(args.image_size, args.image_size),
         num_observations_per_scene=args.num_observations_per_scene,
         initial_file_number=initial_file_number)

@@ -11,4 +11,5 @@ opencv-python
 matplotlib
 tqdm
 shapely
+h5py
 pyglet == 1.4.0b1   # For the pyglet viewer

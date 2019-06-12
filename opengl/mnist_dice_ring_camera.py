@@ -21,7 +21,8 @@ from pyrender import (DirectionalLight, Mesh, Node, OffscreenRenderer,
                       Scene)
 from rooms_ring_camera import (
     compute_yaw_and_pitch, genearte_camera_quaternion, set_random_texture,
-    udpate_vertex_buffer, build_scene, floor_textures, wall_textures, objects)
+    udpate_vertex_buffer, build_scene, floor_textures, wall_textures, objects,
+    object_directory)
 
 
 def load_mnist_images():
@@ -52,7 +53,7 @@ def generate_mnist_texture(mnist_images):
 
 def place_dice(scene, mnist_images, discrete_position=False,
                rotate_dice=False):
-    dice_trimesh = trimesh.load("objects/dice.obj")
+    dice_trimesh = trimesh.load("{}/dice.obj".format(object_directory))
     mesh = Mesh.from_trimesh(dice_trimesh, smooth=False)
     node = Node(
         mesh=mesh,
@@ -90,6 +91,24 @@ def main():
     except:
         pass
 
+    last_file_number = args.initial_file_number + args.total_scenes // args.num_scenes_per_file - 1
+    initial_file_number = args.initial_file_number
+    if os.path.isdir(args.output_directory):
+        files = os.listdir(args.output_directory)
+        for name in files:
+            number = int(name.replace(".h5", ""))
+            if number > last_file_number:
+                continue
+            if number < args.initial_file_number:
+                continue
+            if number < initial_file_number:
+                continue
+            initial_file_number = number + 1
+    total_scenes_to_render = args.total_scenes - args.num_scenes_per_file * (
+        initial_file_number - args.initial_file_number)
+
+    assert args.num_scenes_per_file <= total_scenes_to_render
+
     # Load MNIST images
     mnist_images = load_mnist_images()
 
@@ -98,13 +117,12 @@ def main():
 
     archiver = Archiver(
         directory=args.output_directory,
-        total_scenes=args.total_scenes,
-        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
+        num_scenes_per_file=args.num_scenes_per_file,
         image_size=(args.image_size, args.image_size),
         num_observations_per_scene=args.num_observations_per_scene,
-        initial_file_number=args.initial_file_number)
+        initial_file_number=initial_file_number)
 
-    for scene_index in tqdm(range(args.total_scenes)):
+    for scene_index in tqdm(range(total_scenes_to_render)):
         scene = build_scene(
             floor_textures,
             wall_textures,

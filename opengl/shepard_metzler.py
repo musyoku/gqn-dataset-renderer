@@ -185,6 +185,24 @@ def main():
     except:
         pass
 
+    last_file_number = args.initial_file_number + args.total_scenes // args.num_scenes_per_file - 1
+    initial_file_number = args.initial_file_number
+    if os.path.isdir(args.output_directory):
+        files = os.listdir(args.output_directory)
+        for name in files:
+            number = int(name.replace(".h5", ""))
+            if number > last_file_number:
+                continue
+            if number < args.initial_file_number:
+                continue
+            if number < initial_file_number:
+                continue
+            initial_file_number = number + 1
+    total_scenes_to_render = args.total_scenes - args.num_scenes_per_file * (
+        initial_file_number - args.initial_file_number)
+
+    assert args.num_scenes_per_file <= total_scenes_to_render
+
     # Initialize colors
     color_candidates = []
     for n in range(args.num_colors):
@@ -203,13 +221,12 @@ def main():
 
     archiver = Archiver(
         directory=args.output_directory,
-        total_scenes=args.total_scenes,
-        num_scenes_per_file=min(args.num_scenes_per_file, args.total_scenes),
+        num_scenes_per_file=args.num_scenes_per_file,
         image_size=(args.image_size, args.image_size),
         num_observations_per_scene=args.num_observations_per_scene,
-        initial_file_number=args.initial_file_number)
+        initial_file_number=initial_file_number)
 
-    for scene_index in tqdm(range(args.total_scenes)):
+    for scene_index in tqdm(range(total_scenes_to_render)):
 
         camera_distance = 2
         scene_data = SceneData((args.image_size, args.image_size),
