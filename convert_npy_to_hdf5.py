@@ -14,17 +14,23 @@ def main():
         os.mkdir(args.output_dataset_directory)
     except:
         pass
-        
-    filename_array = os.listdir(os.path.join(args.source_dataset_directory, "images"))
-    for source_filename in filename_array:
-        images = np.load(
-            os.path.join(args.source_dataset_directory, "images", source_filename))
-        viewpoints = np.load(
-            os.path.join(args.source_dataset_directory, "images", source_filename))
 
+    filename_array = os.listdir(
+        os.path.join(args.source_dataset_directory, "images"))
+    for source_filename in filename_array:
         target_filename = source_filename.replace(".npy", ".h5")
-        with h5py.File(os.path.join(args.output_dataset_directory, target_filename),
-                       "w") as f:
+        target_path = os.path.join(args.output_dataset_directory,
+                                   target_filename)
+        if os.path.isfile(target_path):
+            continue
+        images = np.load(
+            os.path.join(args.source_dataset_directory, "images",
+                         source_filename))
+        viewpoints = np.load(
+            os.path.join(args.source_dataset_directory, "images",
+                         source_filename))
+
+        with h5py.File(target_path, "w") as f:
             f.create_dataset("images", data=images)
             f.create_dataset("viewpoints", data=viewpoints)
 
