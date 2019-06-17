@@ -98,8 +98,9 @@ def main():
                                args.num_observations_per_scene)
         for _ in range(args.num_observations_per_scene):
             # Sample camera position
-            rand_position_xz = np.random.uniform(-2.5, 2.5, size=2)
-            rand_lookat_xz = np.random.uniform(-6, 6, size=2)
+            rand_position_xz = np.clip(np.random.normal(0, 2, size=2), -2.5, 2.5)
+            rand_lookat_xz = np.random.uniform(0, 3, size=2)
+
             camera_position = np.array(
                 [rand_position_xz[0], wall_height / 2, rand_position_xz[1]])
             look_at = np.array([rand_lookat_xz[0], wall_height / 2, rand_lookat_xz[1]])
