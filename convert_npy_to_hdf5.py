@@ -27,7 +27,7 @@ def main():
             os.path.join(args.source_dataset_directory, "images",
                          source_filename))
         viewpoints = np.load(
-            os.path.join(args.source_dataset_directory, "images",
+            os.path.join(args.source_dataset_directory, "viewpoints",
                          source_filename))
 
         with h5py.File(target_path, "w") as f:
