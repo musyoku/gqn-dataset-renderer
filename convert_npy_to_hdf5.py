@@ -11,7 +11,7 @@ from PIL import Image
 
 def main():
     try:
-        os.mkdir(args.output_dataset_directory)
+        os.makedirs(args.output_dataset_directory)
     except:
         pass
 
