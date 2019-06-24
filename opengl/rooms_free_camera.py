@@ -86,8 +86,8 @@ def main():
                                args.num_observations_per_scene)
         for observation_index in range(args.num_observations_per_scene):
             # Sample camera position
-            rand_position_xz = np.clip(np.random.normal(0, 2, size=2), -3, 3)
-            rand_lookat_xz = np.random.uniform(0, 2, size=2)
+            rand_position_xz = np.random.uniform(-3, 3, size=2)
+            rand_lookat_xz = np.random.normal(0, 2, size=2)
             camera_position = np.array(
                 [rand_position_xz[0], 1, rand_position_xz[1]])
 
