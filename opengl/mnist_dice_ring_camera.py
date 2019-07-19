@@ -133,7 +133,7 @@ def main():
             discrete_position=args.discrete_position,
             rotate_dice=args.rotate_dice)
 
-        camera_distance = 4
+        camera_distance = 4.5
         camera = PerspectiveCamera(yfov=math.pi / 4)
         camera_node = Node(camera=camera, translation=np.array([0, 1, 1]))
         scene.add_node(camera_node)
